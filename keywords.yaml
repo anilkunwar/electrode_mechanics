@@ -1,0 +1,78 @@
+li_sn_phases:
+  - li2sn5
+  - lisn
+  - li7sn3
+  - li5sn2
+  - li13sn5
+  - li7sn2
+  - li22sn5
+  - li-sn alloy
+  - lithium-tin intermetallic
+  - li-sn compound
+material_properties:
+  - volume expansion
+  - mechanical stress
+  - electrochemical strain
+  - stress relaxation
+  - yield strength
+  - tensile strength
+  - ductility
+  - hardness
+  - strain hardening
+  - elastic modulus
+  - fracture toughness
+  - thermal conductivity
+  - diffusion coefficient
+technological_applications:
+  - lithium-ion battery anodes
+  - tin anode
+  - sn anode
+  - sn-based anode
+  - electrochemical cycling
+  - battery performance
+  - anode stability
+  - efficiency
+  - energy efficiency
+  - solid-state battery
+  - fast charging
+  - capacity retention
+mechanistic_models:
+  - molecular dynamics
+  - computational modeling
+  - multiscale modeling
+  - density functional theory
+  - phase transformation
+  - machine learning
+  - finite element analysis
+  - kinetic monte carlo
+material_characteristics:
+  - microstructure
+  - crystal orientation
+  - phase stability
+  - intermetallic compounds
+  - solid electrolyte interface
+  - cycle phase stability
+  - grain boundary
+  - electrode morphology
+  - surface passivation
+synthesis_methods:
+  - ball milling
+  - electrodeposition
+  - chemical vapor deposition
+  - nanostructuring
+  - sputtering
+  - solvothermal synthesis
+performance_metrics:
+  - coulombic efficiency
+  - rate capability
+  - cycle life
+  - specific capacity
+  - energy density
+  - power density
+degradation_mechanisms:
+  - pulverization
+  - sei formation
+  - electrode cracking
+  - capacity fade
+  - lithium plating
+  - dendrite growth

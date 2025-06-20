@@ -1,4 +1,4 @@
-# Electrode Mechanics
+# Electrode Mechanics (Sn Anode Mechanics for Li-ion Batteries)
 # Informatics of Electrode Mechanics 
 
 # Named Entity Recognition for Linking Text (Entity) to Knowledge Base of Li-ion Battery with Sn Anode (Supervised NLP)

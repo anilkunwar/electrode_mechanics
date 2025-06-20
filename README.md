@@ -1,1 +1,8 @@
 # electrode_mechanics
+
+# Informatics of Electrode Mechanics 
+
+# Named Entity Recognition for Linking Text (Entity) to Knowledge Base of Li-ion Battery with Sn Anode (Supervised NLP)
+
+Basic Model
+[![meaningtowords](https://img.shields.io/badge/supervisedNER-streamlit-red)](https://supervised-nlp-electrodephases.streamlit.app/ )

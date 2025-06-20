@@ -3,10 +3,10 @@
 
 # Named Entity Recognition for Linking Text (Entity) to Knowledge Base of Li-ion Battery with Sn Anode (Supervised NLP)
 
-Basic Model
+Basic Model (deselection of irrelevant phase parameters, suitable for smaller database)
 [![meaningtowords](https://img.shields.io/badge/supervisedNER-streamlit-red)](https://supervised-nlp-electrodephases.streamlit.app/ )
 
-Advanced Model
+Advanced Model (deselection of irrelevant phase parameters, suitable for smaller database)
 [![meaningtowords](https://img.shields.io/badge/supervisedAdvancedNER-streamlit-red)](https://advancednlpelectrodephases.streamlit.app/ )
 
 

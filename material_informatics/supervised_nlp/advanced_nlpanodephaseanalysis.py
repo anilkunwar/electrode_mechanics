@@ -829,7 +829,7 @@ def main():
                 ["#1f77b4", "#ff7f0e", "#2ca02c", "#9467bd", "#ffbb78", "#d62728", "#8c564b", "#e377c2"],
                 index=0, key="radar_plotly_color"
             )
-            radar_line_thickness = st.slider("Radar line thickness", min_value=1.0, max_value=5.0, value=2.0, step=0.1, key="radar_line_thickness")
+            radar_line_thickness = st.slider("Radar line thickness", min_value=1.0, max_value=5.0, value=5.0, step=0.1, key="radar_line_thickness")
             radar_line_style = st.selectbox("Radar line style", ["solid", "dash", "dot"], index=0, key="radar_line_style")
             max_keywords = st.slider("Max phases in radar chart", min_value=3, max_value=12, value=6, step=1, key="max_keywords")
             

@@ -772,15 +772,51 @@ def main():
         with st.sidebar:
             st.header("Visualization Settings")
             st.subheader("Histogram Settings")
-            plotly_color = st.selectbox("Plotly histogram color", ["blue", "red", "green", "purple", "orange"], index=0, key="plotly_color")
-            plotly_color_map = {"blue": "#1f77b4", "red": "#ff7f0e", "green": "#2ca02c", "purple": "#9467bd", "orange": "#ffbb78"}
+            #plotly_color = st.selectbox("Plotly histogram color", ["blue", "red", "green", "purple", "orange"], index=0, key="plotly_color")
+            colors = ["blue", "red", "green", "purple", "orange", "black", "gray", "white", "yellow", "brown", "pink", "cyan", "magenta", 
+                      "lime", "teal", "navy", "maroon", "olive", "gold", "silver", "aqua", "indigo", "violet", "turquoise", "coral", "salmon", 
+                      "chocolate", "crimson", "khaki", "orchid", "plum", "tan", "tomato", "wheat", "lavender", "seagreen", "skyblue", "slateblue",
+                      "dodgerblue", "hotpink", "darkorange", "darkgreen", "darkred", "darkblue", "lightblue", "lightgreen", "lightcoral", "lightsalmon",
+                      "lightseagreen", "lightpink", "lightgray", "deepskyblue", "firebrick", "forestgreen", "midnightblue", "sienna", "thistle", "Jet", "Rainbow", 
+                      "Viridis", "Cividis", "Plasma", "Inferno", "Magma", "Turbo", "IceFire", "Picnic", "Portland", "Earth", "Electric", "Bluered", "Greens", 
+                      "Greys", "YlGnBu"]
+            plotly_color = st.selectbox("Plotly histogram color", colors, index=0, key="plotly_color")
+            #plotly_color_map = {"blue": "#1f77b4", "red": "#ff7f0e", "green": "#2ca02c", "purple": "#9467bd", "orange": "#ffbb78"}
+            plotly_color_map = {
+                "blue": "#1f77b4", "red": "#ff7f0e", "green": "#2ca02c", "purple": "#9467bd", "orange": "#ffbb78",
+                "black": "#000000", "gray": "#808080", "white": "#ffffff", "yellow": "#ffff00", "brown": "#8b4513",
+                "pink": "#ffc0cb", "cyan": "#00ffff", "magenta": "#ff00ff", "lime": "#00ff00", "teal": "#008080",
+                "navy": "#000080", "maroon": "#800000", "olive": "#808000", "gold": "#ffd700", "silver": "#c0c0c0",
+                "aqua": "#00ffff", "indigo": "#4b0082", "violet": "#ee82ee", "turquoise": "#40e0d0", "coral": "#ff7f50",
+                "salmon": "#fa8072", "chocolate": "#d2691e", "crimson": "#dc143c", "khaki": "#f0e68c", "orchid": "#da70d6",
+                "plum": "#dda0dd", "tan": "#d2b48c", "tomato": "#ff6347", "wheat": "#f5deb3", "lavender": "#e6e6fa",
+                "seagreen": "#2e8b57", "skyblue": "#87ceeb", "slateblue": "#6a5acd", "dodgerblue": "#1e90ff",
+                "hotpink": "#ff69b4", "darkorange": "#ff8c00", "darkgreen": "#006400", "darkred": "#8b0000",
+                "darkblue": "#00008b", "lightblue": "#add8e6", "lightgreen": "#90ee90", "lightcoral": "#f08080",
+                "lightsalmon": "#ffa07a", "lightseagreen": "#20b2aa", "lightpink": "#ffb6c1", "lightgray": "#d3d3d3",
+                "deepskyblue": "#00bfff", "firebrick": "#b22222", "forestgreen": "#228b22", "midnightblue": "#191970",
+                "sienna": "#a0522d", "thistle": "#d8bfd8",
+                # Representative HEX codes for colormaps (as approximations or representative color)
+                "Jet": "#00008f", "Rainbow": "#9400d3", "Viridis": "#440154", "Cividis": "#00204c",
+                "Plasma": "#0d0887", "Inferno": "#000004", "Magma": "#000004", "Turbo": "#30123b",
+                "IceFire": "#000083", "Picnic": "#ff0000", "Portland": "#0c3383", "Earth": "#a16928",
+                "Electric": "#dbff00", "Bluered": "#4682b4", "Greens": "#006400", "Greys": "#808080", "YlGnBu": "#225ea8"
+            }
             plotly_theme = st.selectbox("Plotly theme", ["plotly", "plotly_white", "plotly_dark", "ggplot2", "seaborn"], index=1, key="plotly_theme")
-            matplotlib_colormap = st.selectbox(
-                "Matplotlib histogram/radar colormap",
-                ["viridis", "plasma", "inferno", "magma", "hot", "cool", "turbo", "rainbow",
-                 "Blues", "Reds", "Greens", "Purples"],
-                index=0, key="matplotlib_colormap"
-            )
+            #matplotlib_colormap = st.selectbox(
+            #    "Matplotlib histogram/radar colormap",
+            #    ["viridis", "plasma", "inferno", "magma", "hot", "cool", "turbo", "rainbow",
+            #     "Blues", "Reds", "Greens", "Purples"],
+            #    index=0, key="matplotlib_colormap"
+            #)
+            matplotlib_colormaps = [
+                "viridis", "plasma", "inferno", "magma", "hot", "cool", "turbo", "rainbow",
+                "Blues", "Reds", "Greens", "Purples", "Oranges", "Greys", "cividis", "cubehelix",
+                "twilight", "twilight_shifted", "hsv", "spring", "summer", "autumn", "winter", "Wistia",
+                "CMRmap", "terrain", "gist_earth", "gnuplot", "ocean", "flag", "nipy_spectral"
+            ]
+            matplotlib_colormap = st.selectbox("Matplotlib histogram/radar colormap", matplotlib_colormaps, index=0, key="matplotlib_colormap")
+
             bar_width = st.slider("Histogram bar width", min_value=0.1, max_value=1.0, value=0.8, step=0.05, key="bar_width")
             title_font_size = st.slider("Title font size", min_value=12, max_value=30, value=20, step=1, key="title_font_size")
             label_font_size = st.slider("Axis label font size", min_value=10, max_value=24, value=16, step=1, key="label_font_size")

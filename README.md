@@ -6,3 +6,6 @@
 
 Basic Model
 [![meaningtowords](https://img.shields.io/badge/supervisedNER-streamlit-red)](https://supervised-nlp-electrodephases.streamlit.app/ )
+
+Advanced Model
+[![meaningtowords](https://img.shields.io/badge/supervisedAdvancedNER-streamlit-red)](https://advancednlpelectrodephases.streamlit.app/ )

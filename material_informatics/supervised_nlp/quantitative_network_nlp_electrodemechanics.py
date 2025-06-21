@@ -978,8 +978,10 @@ def main():
             edge_style = st.selectbox("Edge style", ["solid", "dashed", "dotted"], index=0, key="edge_style")
             network_label_font_size = st.slider("Network label font size", min_value=10, max_value=24, value=16, step=1, key="network_label_font_size")
             edge_thickness = st.slider("Edge thickness multiplier", min_value=0.5, max_value=5.0, value=1.5, step=0.1, key="edge_thickness")
-            phase_node_size_scale = st.slider("Phase node size scale", min_value=100, max_value=2000, value=500, step=100, key="phase_node_size_scale")
-            mech_term_node_size_scale = st.slider("Mechanical term node size scale", min_value=100, max_value=2000, value=500, step=100, key="mech_term_node_size_scale")
+            #phase_node_size_scale = st.slider("Phase node size scale", min_value=100, max_value=2000, value=500, step=100, key="phase_node_size_scale")
+            #mech_term_node_size_scale = st.slider("Mechanical term node size scale", min_value=100, max_value=2000, value=500, step=100, key="mech_term_node_size_scale")
+            phase_node_size_scale = st.slider("Phase node size scale", min_value=1000, max_value=20000, value=4000, step=1000, key="phase_node_size_scale")
+            mech_term_node_size_scale = st.slider("Mechanical term node size scale", min_value=1000, max_value=20000, value=2000, step=1000, key="mech_term_node_size_scale")
         
         uploaded_file = st.file_uploader("Upload SQLite database (.db)", type=["db"], key="db_uploader")
         use_existing_db = st.checkbox("Use database created from PDF to Database tab", value=True)

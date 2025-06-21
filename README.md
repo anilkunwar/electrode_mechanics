@@ -13,5 +13,9 @@ Advanced Model (deselection of irrelevant phase parameters, suitable for smaller
 Advanced Model (selection of relevant phase parameters, suitable for larger text database)
 [![meaningtowords](https://img.shields.io/badge/supervisedAdvancedNERlarge-streamlit-red)](https://electrodephasemechanics-advancednlp.streamlit.app/ )
 
+Advanced Model (selection of relevant phase parameters, suitable for larger text database. Quantitative representation of Bibliometric Network)
+[![meaningtowords](https://img.shields.io/badge/supervisedQNetNERlarge-streamlit-red)](https://electrodemechanics-nlpquantitativenetwork.streamlit.app/ )
+
+
 
 # Phase Field Model

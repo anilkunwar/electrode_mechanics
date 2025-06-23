@@ -296,8 +296,8 @@ def perform_ner_on_terms(db_file, selected_terms):
         entity_set = set()
         progress_bar = st.progress(0)
         reference_terms = {
-            "STRAIN": ["strain", "mechanical strain", "deformation"],
-            "STRESS": ["stress", "mechanical stress"],
+            "STRAIN": ["strain", "mechanical strain", "deformation", "diagonal strain"],
+            "STRESS": ["stress", "mechanical stress", "von Mises stress", "hydrostatic stress", "equivalent stress"],
             "VOLUME_EXPANSION": ["volume expansion", "swelling", "volumetric expansion", "volume change", 
             "volumetric change", "electrode swelling", "material swelling", 
             "dimensional change", "volume deformation", "volume increase", 

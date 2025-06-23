@@ -21,5 +21,6 @@ transformers
 torch
 torchvision
 torchaudio
+sqlite3
 
 

@@ -19,3 +19,6 @@ PyMuPDF
 plotly
 transformers
 torch
+torchvision
+torchaudio
+

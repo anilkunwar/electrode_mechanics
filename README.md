@@ -16,6 +16,7 @@ Advanced Model (selection of relevant phase parameters, suitable for larger text
 Advanced Model (selection of relevant phase parameters, suitable for larger text database. Quantitative representation of Bibliometric Network)
 [![meaningtowords](https://img.shields.io/badge/supervisedQNetNERlarge-streamlit-red)](https://electrodemechanics-nlpquantitativenetwork.streamlit.app/ )
 
+# Intelligent knoweldge extraction for understanding volume expansion in lithiated battery electrode (Attention Mechanism, NLP)
 
 
 # Phase Field Model

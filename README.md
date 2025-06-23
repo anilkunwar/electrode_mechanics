@@ -17,6 +17,7 @@ Advanced Model (selection of relevant phase parameters, suitable for larger text
 [![meaningtowords](https://img.shields.io/badge/supervisedQNetNERlarge-streamlit-red)](https://electrodemechanics-nlpquantitativenetwork.streamlit.app/ )
 
 # Intelligent knowledge extraction for understanding volume expansion in lithiated battery electrode (Attention Mechanism, NLP)
+NER analysis for terms such as : Battery (specific capacity), Volume expansion, Mechanical Stress and Strain. 
 
 
 # Phase Field Model

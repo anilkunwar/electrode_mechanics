@@ -17,7 +17,20 @@ Advanced Model (selection of relevant phase parameters, suitable for larger text
 [![meaningtowords](https://img.shields.io/badge/supervisedQNetNERlarge-streamlit-red)](https://electrodemechanics-nlpquantitativenetwork.streamlit.app/ )
 
 # Intelligent knowledge extraction for understanding volume expansion in lithiated battery electrode (Attention Mechanism, NLP)
+
 NER analysis for terms such as : Battery (specific capacity), Volume expansion, Mechanical Stress and Strain. 
 
+A. Intelligent app to study the text of Lithium ion battery mechanics and store them in database format: lithiation_knowledge.db (concise information) and knowledge_universe.db (full knowledge). Web app (to be made available soon...)
+
+B. Learner tool that reads the .db files through the following stepwise processes
+
+(i) inspect the knowledge databases and provide the key summary
+
+(ii) common term analysis in diverse literature 
+
+(iii) NER analysis for the most significant words/phrases summarized from (i)-(ii)
+
+Lithium ion Battery Mechanics Learner app (Basic model): 
+[![meaningtowords](https://img.shields.io/badge/attnMechLearner-streamlit-red)](https://lithiumionbatterymechanics-learner.streamlit.app/)
 
 # Phase Field Model

@@ -18,3 +18,4 @@ arxiv
 PyMuPDF
 plotly
 transformers
+torch

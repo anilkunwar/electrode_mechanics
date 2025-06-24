@@ -33,4 +33,13 @@ B. Learner tool that reads the .db files through the following stepwise processe
 Lithium ion Battery Mechanics Learner app (Basic model): 
 [![meaningtowords](https://img.shields.io/badge/attnMechLearner-streamlit-red)](https://lithiumionbatterymechanics-learner.streamlit.app/)
 
+If the basic model fails to run (due to memory issues) then the following visalization tools can be utilized to see only the results:
+Basic Visualization
+[![meaningtowords](https://img.shields.io/badge/attnMechVisual-streamlit-red)](https://nlpsimulationenergymechanics-datavisualization.streamlit.app/)
+
+Enhanced Visualization 
+[![meaningtowords](https://img.shields.io/badge/attnMechEnhancedVisual-streamlit-red)](https://energymehanics-informatics-enhanceddatavisualization.streamlit.app/)
+
+
+
 # Phase Field Model

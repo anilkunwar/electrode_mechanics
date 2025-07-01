@@ -35,8 +35,8 @@ def main():
     ax.spines['right'].set_linewidth(4)
     ax.spines['bottom'].set_linewidth(4)
     ax.spines['left'].set_linewidth(4)
-    ax.text(0.9, 0.4, r'$h = \frac{1}{1 + e^{-\theta (c - c_0)}}$', 
-            fontsize=20, transform=ax.transAxes, verticalalignment='top', horizontalalignment='left')
+    ax.text(0.1, 0.4, r'$h = \frac{1}{1 + e^{-\theta (c - c_0)}}$', 
+            fontsize=20, transform=ax.transAxes, verticalalignment='top', horizontalalignment='right')
 
     st.pyplot(fig)
     

@@ -40,7 +40,7 @@ def main():
     ax.text(xf, yf, r'$h = \frac{1}{1 + e^{-\theta (c - c_0)}}$', 
             fontsize=20, transform=ax.transAxes, verticalalignment='top', horizontalalignment='right')
     #ax.text(0.1, 0.4, r'$h = \frac{1}{1 + e^{-\theta (c - c_0)}}$', 
-            fontsize=20, transform=ax.transAxes, verticalalignment='top', horizontalalignment='right')
+    #        fontsize=20, transform=ax.transAxes, verticalalignment='top', horizontalalignment='right')
 
     st.pyplot(fig)
     

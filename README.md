@@ -54,3 +54,9 @@ Sigmoidal :
 
 LogSigmoidal and Sigmoidal: 
 [![meaningtowords](https://img.shields.io/badge/logsigmoidal-streamlit-red)](https://sigmoidallogarithmic-interpolationfunction.streamlit.app/)
+
+Hyperbolic Tangent:
+[![meaningtowords](https://img.shields.io/badge/tanh-streamlit-red)](https://hyperbolictangent-interpolationfunction.streamlit.app/)
+
+Multiple Functions Model for Interpolating Material Properties of BCT Sn and LI2SN5 Phases
+[![meaningtowords](https://img.shields.io/badge/multiplefunc-streamlit-red)](https://hyperbolictangent-interpolationfunction.streamlit.app/)

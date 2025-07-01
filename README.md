@@ -52,8 +52,8 @@ Arctan function for h :
 Sigmoidal : 
 [![meaningtowords](https://img.shields.io/badge/sigmoidal-streamlit-red)](https://sigmoidalinterpolationfunction.streamlit.app/)
 
-LogSigmoidal and Sigmoidal: 
-[![meaningtowords](https://img.shields.io/badge/logsigmoidal-streamlit-red)](https://sigmoidallogarithmic-interpolationfunction.streamlit.app/)
+Smooth Function and Sigmoidal: 
+[![meaningtowords](https://img.shields.io/badge/sigmalog-streamlit-red)](https://sigmoidallogarithmic-interpolationfunction.streamlit.app/)
 
 Hyperbolic Tangent:
 [![meaningtowords](https://img.shields.io/badge/tanh-streamlit-red)](https://hyperbolictangent-interpolationfunction.streamlit.app/)

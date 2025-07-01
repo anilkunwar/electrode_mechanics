@@ -16,7 +16,7 @@ def main():
     st.write("This app uses an arctangent-based function to create a smooth interpolation between Sn and Li₂Sn₅ phases.")
 
     # Sidebar controls
-    xf = st.sidebar.slider('x-text position', 0.0, 1.0, 0.5)
+    xf = st.sidebar.slider('x-text position', 0.0, 1.0, 0.77)
     yf = st.sidebar.slider('y-text position', 0.0, 1.0, 0.4)
     curve_color = st.sidebar.color_picker("Pick line color", "#008B8B")
 

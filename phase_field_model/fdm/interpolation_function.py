@@ -12,8 +12,8 @@ def main():
     chosen_colors = []
     color_map = ['#FF5733', '#33FF57', '#3366FF', '#FF33FF', '#000000']
     c0 = 5/7  # Transition point for Li₂Sn₅
-    xf = st.sidebar.slider(f'$x_{expr}$', min_value=0, max_value=1.0, value=0.4)
-    yf = st.sidebar.slider(f'$y_{expr}$', min_value=0, max_value=1.0, value=0.4)
+    xf = st.sidebar.slider(f'$x_{math}$', min_value=0, max_value=1.0, value=0.4)
+    yf = st.sidebar.slider(f'$y_{math}$', min_value=0, max_value=1.0, value=0.4)
     for i in range(2):
         theta_default = 20 if i == 0 else 40  # Default θ values inspired by β = 20
         theta = st.sidebar.slider(f'$\\theta_{i+1}$', min_value=0, max_value=100, value=theta_default)

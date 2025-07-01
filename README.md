@@ -45,5 +45,12 @@ Enhanced Visualization
 # Phase Field Model
 
 Interpolation Function
-Arctan h : 
+
+Arctan function for h : 
 [![meaningtowords](https://img.shields.io/badge/arctanfunction-streamlit-red)](https://arctaninterpolationfunction.streamlit.app/)
+
+Sigmoidal : 
+[![meaningtowords](https://img.shields.io/badge/sigmoidal-streamlit-red)](https://sigmoidalinterpolationfunction.streamlit.app/)
+
+LogSigmoidal and Sigmoidal: 
+[![meaningtowords](https://img.shields.io/badge/logsigmoidal-streamlit-red)](https://sigmoidalinterpolationfunction.streamlit.app/)

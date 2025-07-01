@@ -7,7 +7,7 @@ def sigmoid(theta, c, c0=5/7):
     return 1 / (1 + np.exp(-theta * (c - c0)))
 
 def main():
-    st.title('Interpolation Function for Composition Dependent Material Properties in BCT Sn to Li₂Sn₅ Phase')
+    st.title('Interpolation Function for Composition Dependent Material Properties in BCT Sn and Li₂Sn₅ Phase')
     thetas = []
     chosen_colors = []
     color_map = ['#FF5733', '#33FF57', '#3366FF', '#FF33FF', '#000000']

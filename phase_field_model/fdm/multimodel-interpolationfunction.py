@@ -10,7 +10,7 @@ target = 0.98  # h(c1)=0.01, h(c2)=0.99 → 2h - 1 = ±0.98
 
 # Functions
 def auto_theta_sigmoid(c1, c2):
-    return -np.log((1 - target) / target) / (c1 - c2)
+    return np.log(target / (1 - target)) / (c2 - c1)
 
 def auto_theta_arctan(c1, c2):
     return np.tan(np.pi * (target - 0.5)) / (c2 - c0)

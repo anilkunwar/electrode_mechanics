@@ -43,3 +43,7 @@ Enhanced Visualization
 
 
 # Phase Field Model
+
+Interpolation Function
+Arctan h : 
+[![meaningtowords](https://img.shields.io/badge/arctanfunction-streamlit-red)](https://arctaninterpolationfunction.streamlit.app/)

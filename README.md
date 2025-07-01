@@ -53,4 +53,4 @@ Sigmoidal :
 [![meaningtowords](https://img.shields.io/badge/sigmoidal-streamlit-red)](https://sigmoidalinterpolationfunction.streamlit.app/)
 
 LogSigmoidal and Sigmoidal: 
-[![meaningtowords](https://img.shields.io/badge/logsigmoidal-streamlit-red)](https://sigmoidalinterpolationfunction.streamlit.app/)
+[![meaningtowords](https://img.shields.io/badge/logsigmoidal-streamlit-red)](https://sigmoidallogarithmic-interpolationfunction.streamlit.app/)

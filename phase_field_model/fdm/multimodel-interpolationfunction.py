@@ -90,8 +90,9 @@ def main():
     for spine in ax.spines.values():
         spine.set_linewidth(4)
 
-    ax.text(xf, yf, formula, fontsize=20, transform=ax.transAxes,
-            verticalalignment='top', horizontalalignment='right')
+    # The label for formula is currently turned off
+    #ax.text(xf, yf, formula, fontsize=20, transform=ax.transAxes,
+    #        verticalalignment='top', horizontalalignment='right')
 
     st.pyplot(fig)
 

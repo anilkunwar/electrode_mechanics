@@ -31,8 +31,8 @@ validParams<TwoPhasesSumCdothsquare>()
   //params.addRequiredCoupledVar("var2", "order parameter as coupled variable."); //var2=eta_imc2
   //params.addRequiredCoupledVar("var3", "order parameter as coupled variable."); //var3=eta_sn
   //params.addRequiredCoupledVar("var4", "order parameter as coupled variable."); //var3=eta_sn
-  params.addRequiredParam<MaterialPropertyName>("h1_name","Switching function of Li2Sn5");
-  params.addRequiredParam<MaterialPropertyName>("h2_name","Switching function of BCT Sn")
+  params.addRequiredParam<MaterialPropertyName>("h1_name","Interpolation function of Li2Sn5");
+  params.addRequiredParam<MaterialPropertyName>("h2_name","Interpolation function of BCT Sn")
   //params.addRequiredParam<MaterialPropertyName>("h3_name","Switching function of liq");
   //params.addRequiredParam<MaterialPropertyName>("h4_name","Switching function of imc2");
   //params.addRequiredParam<MaterialPropertyName>("h5_name","Switching function of imc3");

@@ -1,6 +1,8 @@
 ###########################################################################################################################
 # The multicomponent is represented by the suffixes a and b for ternary system A-B-C
 # For multiphase system with eta1, eta2, and eta3, the suffixes 1,2 and 3 come after the variables and materials properties  
+# This is a binary Li-Sn system. So, only ca = mole fraction of Sn is sufficient
+# For two order parameters, eta1 and eta2 are utilized in the model
 ############################################################################################################################
 [Mesh]
   type = GeneratedMesh

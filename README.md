@@ -60,3 +60,10 @@ Hyperbolic Tangent:
 
 Multiple Functions Model for Interpolating Material Properties of BCT Sn and LI2SN5 Phases
 [![meaningtowords](https://img.shields.io/badge/multiplefunc-streamlit-red)](https://multimodelinterpolationfunction.streamlit.app/)
+
+
+Eigen Strain 
+
+Eigenstrain Calculation from the Molar Volume of Phases:
+[![meaningtowords](https://img.shields.io/badge/eigenstrain-streamlit-red)](https://eigenstraincalculator.streamlit.app/)
+

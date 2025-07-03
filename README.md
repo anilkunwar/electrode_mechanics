@@ -65,5 +65,9 @@ Multiple Functions Model for Interpolating Material Properties of BCT Sn and LI2
 Eigen Strain 
 
 Eigenstrain Calculation from the Molar Volume of Phases:
+Two Models
 [![meaningtowords](https://img.shields.io/badge/eigenstrain-streamlit-red)](https://eigenstraincalculator.streamlit.app/)
+
+Three Models
+[![meaningtowords](https://img.shields.io/badge/phaseeigenstrain-streamlit-red)](https://compute-eigenstrain.streamlit.app/)
 

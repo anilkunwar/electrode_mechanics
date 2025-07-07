@@ -21,6 +21,7 @@ transformers
 torch
 torchvision
 torchaudio
+kaleido
 
 
 

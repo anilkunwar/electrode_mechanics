@@ -107,9 +107,12 @@ def plot_plotly_heatmap(attn_matrix, token_strs, colorscale, show_target_annotat
         hoverinfo="text",
         colorscale=colorscale,
         colorbar=dict(
-            title="Attention Weight",
-            tickfont=dict(size=14),
-            titleside="right"
+            title=dict(
+                text="Attention Weight",
+                side="right",
+                font=dict(size=14)
+            ),
+            tickfont=dict(size=14)
         ),
         zmin=0,
         zmax=1

@@ -25,7 +25,7 @@ A. Intelligent app to study the text of Lithium ion battery mechanics and store 
 Relevance score and Attention Mechanism:
 [![meaningtowords](https://img.shields.io/badge/relScore-streamlit-red)](https://relevance-score-elastomechanics.streamlit.app/)
 
-More interactive relevance score
+More interactive relevance score (Heatmap)
 [![meaningtowords](https://img.shields.io/badge/interactiverelScore-streamlit-red)](https://interactive-relevance-score-elastomechanics.streamlit.app/)
 
 B. Learner tool that reads the .db files through the following stepwise processes

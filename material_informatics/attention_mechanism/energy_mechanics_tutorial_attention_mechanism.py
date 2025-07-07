@@ -62,7 +62,7 @@ def compute_relevance(token_scores):
 
 def plot_matplotlib_heatmap(attn_matrix, token_strs, cmap, fontsize, show_target_annotations):
     # Set publication-quality styling
-    plt.style.use('seaborn')  # Professional style
+    plt.style.use('ggplot')  # Professional style
     fig, ax = plt.subplots(figsize=(10, 10), dpi=300)  # High DPI for publication
     sns.heatmap(
         attn_matrix,

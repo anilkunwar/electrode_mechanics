@@ -169,15 +169,19 @@ if "attn_matrix" in st.session_state:
     )
     st.plotly_chart(fig_plotly, use_container_width=True)
 
-    # Download Plotly heatmap
-    buf_plotly = BytesIO()
-    fig_plotly.write_image(buf_plotly, format="png", scale=2)
-    st.download_button(
-        label="📥 Download Plotly Heatmap (PNG)",
-        data=buf_plotly.getvalue(),
-        file_name="plotly_attention_heatmap.png",
-        mime="image/png"
-    )
+    # Download Plotly heatmap with error handling
+    try:
+        import plotly.io as pio
+        buf_plotly = BytesIO()
+        fig_plotly.write_image(buf_plotly, format="png", scale=2)
+        st.download_button(
+            label="📥 Download Plotly Heatmap (PNG)",
+            data=buf_plotly.getvalue(),
+            file_name="plotly_attention_heatmap.png",
+            mime="image/png"
+        )
+    except Exception as e:
+        st.warning("Unable to generate Plotly heatmap download due to missing dependencies (e.g., kaleido or Chrome). Please ensure kaleido is installed and a compatible browser is available.")
 
     # Matplotlib Heatmap Customization
     st.subheader("🎨 Customize Matplotlib Heatmap")
@@ -198,4 +202,3 @@ if "attn_matrix" in st.session_state:
         file_name="matplotlib_attention_heatmap.png",
         mime="image/png"
     )
-

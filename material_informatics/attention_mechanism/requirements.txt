@@ -22,7 +22,5 @@ torch
 torchvision
 torchaudio
 sqlite3
-mdurl
-pygments
 
 

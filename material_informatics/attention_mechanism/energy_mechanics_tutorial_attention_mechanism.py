@@ -1,4 +1,3 @@
-```python
 import streamlit as st
 import torch
 from transformers import AutoTokenizer, AutoModel
@@ -199,4 +198,4 @@ if "attn_matrix" in st.session_state:
         file_name="matplotlib_attention_heatmap.png",
         mime="image/png"
     )
-```
+

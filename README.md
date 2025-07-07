@@ -21,6 +21,9 @@ Advanced Model (selection of relevant phase parameters, suitable for larger text
 NER analysis for terms such as : Battery (specific capacity), Volume expansion, Mechanical Stress and Strain. 
 
 A. Intelligent app to study the text of Lithium ion battery mechanics and store them in database format: lithiation_knowledge.db (concise information) and knowledge_universe.db (full knowledge). Web app (to be made available soon...)
+Relevance score and Attention Mechanism:
+[![meaningtowords](https://img.shields.io/badge/relScore-streamlit-red)](https://relevance-score-elastomechanics.streamlit.app/)
+
 
 B. Learner tool that reads the .db files through the following stepwise processes
 

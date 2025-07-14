@@ -16,9 +16,11 @@ Advanced Model (selection of relevant phase parameters, suitable for larger text
 Advanced Model (selection of relevant phase parameters, suitable for larger text database. Quantitative representation of Bibliometric Network)
 [![meaningtowords](https://img.shields.io/badge/supervisedQNetNERlarge-streamlit-red)](https://electrodemechanics-nlpquantitativenetwork.streamlit.app/ )
 
-Illustration of Hybrid NER 
+Illustration of Hybrid NER (without the Pie-Chart) 
 [![meaningtowords](https://img.shields.io/badge/hybridNER-streamlit-red)](https://hybrid-ner-in-anodemechanics.streamlit.app/)
 
+Illustration of Hybrid NER (with the Pie-Chart) 
+[![meaningtowords](https://img.shields.io/badge/hybridNERwPieChart-streamlit-red)](https://hybrid-ner-anode-mechanics.streamlit.app/)
 
 # Intelligent knowledge extraction for understanding volume expansion in lithiated battery electrode (Attention Mechanism, NLP)
 

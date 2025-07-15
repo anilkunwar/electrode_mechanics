@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 from io import BytesIO
 import numpy as np
+from matplotlib.patches import Patch
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -163,7 +164,6 @@ def estimate_entity_probabilities(doc):
                 entity_probs[span_text] = {label: 1.0/len(labels) for label in labels}
                 continue
             
-            # Check if any token has non-zero vectors
             valid_vectors = [token.vector for token in span_tokens if token.vector.any()]
             if valid_vectors:
                 feature_vector = np.mean(valid_vectors, axis=0)
@@ -172,7 +172,6 @@ def estimate_entity_probabilities(doc):
                 update_log(f"No valid vectors for entity '{span_text}'")
                 feature_vector = np.zeros(96)
             
-            # Correctly combine context tokens
             context_tokens = list(doc[max(0, ent.start - 2):ent.start]) + list(doc[ent.end:min(ent.end + 2, len(doc))])
             valid_context_vectors = [token.vector for token in context_tokens if token.vector.any()]
             context_vector = np.mean(valid_context_vectors, axis=0) if valid_context_vectors else np.zeros_like(feature_vector)
@@ -194,7 +193,6 @@ def estimate_entity_probabilities(doc):
             entity_probs[span_text] = dict(zip(labels, probabilities))
             logger.debug(f"Probabilities for '{span_text}': {entity_probs[span_text]}")
         
-        # Handle regex-detected LiₓSnᵧ phases
         for token in doc:
             if re.match(PHASE_PATTERN, token.text, re.IGNORECASE) and token.text not in entity_probs:
                 span_text = token.text
@@ -275,7 +273,7 @@ def create_entity_prob_plot(prob_dict, entity_text):
         return BytesIO(), BytesIO()
 
 def create_entity_prob_pie_plot(prob_dict, entity_text):
-    """Create a pie chart for an entity's label probabilities."""
+    """Create a pie chart for an entity's label probabilities with a colored legend."""
     try:
         if not prob_dict:
             logger.warning(f"No probabilities for {entity_text} pie plot.")
@@ -305,15 +303,28 @@ def create_entity_prob_pie_plot(prob_dict, entity_text):
         cmap = matplotlib.colormaps.get_cmap(st.session_state.colormap)
         colors = [cmap(i / len(filtered_labels)) for i in range(len(filtered_labels))]
         
-        # Plot pie chart
-        wedges, texts, autotexts = ax.pie(
+        # Plot pie chart without autopct
+        wedges, texts = ax.pie(
             filtered_probs,
-            labels=filtered_labels,
+            labels=None,  # Remove labels from slices
             colors=colors,
             explode=explode,
-            autopct='%1.1f%%' if st.session_state.show_pie_percentages else None,
-            textprops={'fontsize': st.session_state.pie_label_font_size, 'weight': 'medium'},
             startangle=90
+        )
+        
+        # Create legend with labels and percentages
+        legend_labels = [
+            f"{label}: {prob*100:.1f}%" if st.session_state.show_pie_percentages else label
+            for label, prob in zip(filtered_labels, filtered_probs)
+        ]
+        legend_patches = [Patch(color=colors[i], label=legend_labels[i]) for i in range(len(filtered_labels))]
+        ax.legend(
+            handles=legend_patches,
+            fontsize=st.session_state.pie_label_font_size,
+            loc='center left',
+            bbox_to_anchor=(1.05, 0.5),
+            frameon=True,
+            edgecolor='black'
         )
         
         ax.set_title(f"Estimated Probabilities for '{entity_text}' (Pie)", fontsize=st.session_state.title_font_size, pad=15, weight='bold')
@@ -321,7 +332,7 @@ def create_entity_prob_pie_plot(prob_dict, entity_text):
         # Ensure circular shape
         ax.axis('equal')
         
-        plt.tight_layout(pad=2.0)
+        plt.tight_layout(pad=2.0, rect=[0, 0, 0.85, 1])  # Adjust for legend
         
         buf_png = BytesIO()
         plt.savefig(buf_png, format="png", bbox_inches="tight", dpi=300, facecolor='white')
@@ -331,8 +342,8 @@ def create_entity_prob_pie_plot(prob_dict, entity_text):
         buf_png.seek(0)
         buf_svg.seek(0)
         
-        logger.info(f"Pie probability plot for {entity_text} generated successfully.")
-        update_log(f"Pie probability plot for {entity_text} generated successfully.")
+        logger.info(f"Pie probability plot for {entity_text} with colored legend generated successfully.")
+        update_log(f"Pie probability plot for {entity_text} with colored legend generated successfully.")
         return buf_png, buf_svg
     
     except Exception as e:
@@ -403,7 +414,7 @@ Below are the estimated probabilities for each spaCy-detected entity in the inpu
 - The EntityRuler ensures "BCT Sn" is labeled as PHASE, boosting its score.
 - Regex ensures LiₓSnᵧ phases (e.g., Li2Sn5) are detected, with a high weight.
 - Actual spaCy scores use neural network weights, approximated here with heuristics and embeddings.
-- The bar and pie plots below visualize these probabilities for each entity.
+- The bar plots and pie charts (with percentages in the legend) below visualize these probabilities for each entity.
 """
     return explanation
 
@@ -629,12 +640,12 @@ def main():
             key="pie_explode_slider"
         )
         st.session_state.pie_label_font_size = st.slider(
-            "Pie Chart Label Font Size",
+            "Pie Chart Legend Font Size",
             min_value=8, max_value=16, value=st.session_state.pie_label_font_size, step=1,
             key="pie_label_font_size_slider"
         )
         st.session_state.show_pie_percentages = st.checkbox(
-            "Show Percentages on Pie Chart",
+            "Show Percentages in Pie Chart Legend",
             value=st.session_state.show_pie_percentages,
             key="show_pie_percentages_checkbox"
         )

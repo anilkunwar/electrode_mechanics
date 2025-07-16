@@ -88,7 +88,8 @@ def plot_matplotlib_heatmap(attn_matrix, token_strs, cmap, fontsize, show_target
                 )
 
     # Customize axes
-    ax.set_title("Token-to-Token Attention (Last Layer, Averaged Heads)", fontsize=fontsize + 4, pad=20)
+    #ax.set_title("Token-to-Token Attention (Last Layer, Averaged Heads)", fontsize=fontsize + 4, pad=20)
+    ax.set_title("Token-to-Token Attention", fontsize=fontsize + 4, pad=20)
     ax.set_xlabel("Key Tokens", fontsize=fontsize)
     ax.set_ylabel("Query Tokens", fontsize=fontsize)
     ax.tick_params(axis='both', which='major', labelsize=fontsize-2, rotation=45)

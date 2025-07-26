@@ -54,7 +54,7 @@ def get_attention_scores(text, max_tokens=None):
 
 def compute_relevance(token_scores):
     if not token_scores:
-        return 0.0
+        return 0.20
     avg_score = np.mean(list(token_scores.values()))
     num_tokens = len(token_scores)
     relevance = min(0.5 + 0.4 * num_tokens * avg_score, 1.0)

@@ -127,7 +127,7 @@ def visualize_ner_results(df, pmi_results):
     st.sidebar.subheader("Data Filters")
     selected_papers = st.sidebar.multiselect("Select Papers", df['paper_id'].unique(), default=df['paper_id'].unique())
     entity_types = st.sidebar.multiselect("Parameter Types", param_types, default=param_types)
-    temp_range = st.sidebar.slider("Temperature Range (K)", 200, 2000, (200, 1000), step=10)
+    temp_range = st.sidebar.slider("Temperature Range (K)", 200, 2000, (200, 350), step=10)
     energy_range = st.sidebar.slider("Interface Energy Range (J/m²)", 0.001, 10.0, (0.001, 2.0), step=0.001)
     width_range = st.sidebar.slider("Interface Width Range (nm)", 0.1, 1000.0, (0.1, 100.0), step=0.1)
     sort_by = st.sidebar.selectbox("Sort By", ["entity_label", "value"], help="Sort by parameter type or value.")

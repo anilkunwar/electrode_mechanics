@@ -96,7 +96,7 @@ def visualize_ner_results(df, pmi_results):
     marker_size = st.sidebar.slider("Scatter Marker Size", 20, 500, 100, step=10)
     alpha = st.sidebar.slider("Marker Transparency", 0.1, 1.0, 0.6, step=0.1)
     font_family = st.sidebar.selectbox("Font Family", ["Arial", "Helvetica", "Times New Roman"], index=0)
-    colormap = st.sidebar.selectbox("Colormap (Histograms & Scatter Plots)", colormaps, index=colormaps.index(default_colormap))
+    colormap = st.sidebar.selectbox("Colormap", colormaps, index=colormaps.index(default_colormap))
     hist_edge_width = st.sidebar.slider("Histogram Edge Line Width", 0.5, 2.0, 1.0, step=0.1)
     xlabel_color = st.sidebar.color_picker("X-Label Color", "#000000")
     ylabel_color = st.sidebar.color_picker("Y-Label Color", "#000000")
@@ -122,6 +122,9 @@ def visualize_ner_results(df, pmi_results):
     ternary_colormap = st.sidebar.selectbox("Ternary Colormap", colormaps, index=colormaps.index(default_colormap))
     ternary_grid_thickness = st.sidebar.slider("Ternary Grid Line Thickness", 0.5, 2.0, 1.0, step=0.1)
     ternary_grid_color = st.sidebar.color_picker("Ternary Grid Line Color", "#808080")
+    label_font_size = st.sidebar.slider("Axis Label Font Size", 10, 24, 14, step=1)
+    marker_scale = st.sidebar.slider("Marker Size Scaling", 0.5, 3.0, 1.5, step=0.1)
+    show_original_scale = st.sidebar.checkbox("Show Original Scale Indicators", True)
 
     # Filters
     st.sidebar.subheader("Data Filters")
@@ -534,140 +537,194 @@ def visualize_ner_results(df, pmi_results):
             logging.debug("energy_scatter_df is None or empty.")
 
     # Ternary Distribution (Normalized)
-    st.subheader("Ternary Distribution of Normalized Parameters")
+    st.subheader("Enhanced Ternary Distribution of Normalized Parameters")
     ternary_df = filtered_df[filtered_df['entity_label'].isin(['INTERFACE_ENERGY', 'INTERFACE_WIDTH', 'TEMPERATURE_K'])]
     if not ternary_df.empty:
         # Normalize values
         df_norm = ternary_df.copy()
-        df_norm['value'] = df_norm['value'].fillna(0)  # Fill NaN with 0 for normalization
-        
-        # Store min and max for inverse scaling
         min_max_dict = {}
+        
+        # Calculate min/max for each parameter
         for param in ['INTERFACE_ENERGY', 'INTERFACE_WIDTH', 'TEMPERATURE_K']:
             param_values = df_norm[df_norm['entity_label'] == param]['value']
-            min_max_dict[param] = {
-                'min': param_values.min(),
-                'max': param_values.max() + 1e-6  # Avoid division by zero
-            }
-        
-        # Apply min-max normalization
-        df_norm['value'] = df_norm.apply(
-            lambda row: (row['value'] - min_max_dict[row['entity_label']]['min']) / 
-                        (min_max_dict[row['entity_label']]['max'] - min_max_dict[row['entity_label']]['min'])
-                        if row['entity_label'] in min_max_dict else 0, 
-            axis=1
-        )
+            if not param_values.empty:
+                min_val = param_values.min()
+                max_val = param_values.max()
+                min_max_dict[param] = {'min': min_val, 'max': max_val}
+                
+                # Apply min-max normalization
+                mask = df_norm['entity_label'] == param
+                df_norm.loc[mask, 'value'] = (df_norm.loc[mask, 'value'] - min_val) / (max_val - min_val + 1e-6)
         
         # Pivot data for normalized ternary plot
         df_pivot = df_norm.pivot_table(
             index='paper_id',
             columns='entity_label',
             values='value',
-            aggfunc='mean'  # Use mean if multiple values per paper
-        ).reset_index()
+            aggfunc='mean'
+        ).reset_index().fillna(0)
         
-        df_pivot = df_pivot.fillna(0)  # Fill NaN with 0 for ternary plot
-        
-        # Rename columns for ternary plot
+        # Rename columns
         df_pivot = df_pivot.rename(columns={
             'INTERFACE_ENERGY': 'Energy',
             'INTERFACE_WIDTH': 'Width',
             'TEMPERATURE_K': 'Temperature'
         })
         
-        # Normalize to sum to 1 for ternary plot
+        # Normalize to sum to 1
         df_pivot['sum'] = df_pivot['Energy'] + df_pivot['Width'] + df_pivot['Temperature']
-        df_pivot['Energy'] = df_pivot['Energy'] / df_pivot['sum'].replace(0, 1)  # Avoid division by zero
-        df_pivot['Width'] = df_pivot['Width'] / df_pivot['sum'].replace(0, 1)
-        df_pivot['Temperature'] = df_pivot['Temperature'] / df_pivot['sum'].replace(0, 1)
+        df_pivot['Energy'] /= df_pivot['sum'].replace(0, 1)
+        df_pivot['Width'] /= df_pivot['sum'].replace(0, 1)
+        df_pivot['Temperature'] /= df_pivot['sum'].replace(0, 1)
         
-        # Plot normalized ternary diagram with Plotly
+        # Create enhanced ternary plot
+        fig = go.Figure()
+        
+        # Create hover text with original values
+        hover_text = []
+        for _, row in df_pivot.iterrows():
+            paper_id = row['paper_id']
+            orig_values = []
+            for param in ['INTERFACE_ENERGY', 'INTERFACE_WIDTH', 'TEMPERATURE_K']:
+                orig_val = ternary_df[(ternary_df['paper_id'] == paper_id) & 
+                                     (ternary_df['entity_label'] == param)]['value'].mean()
+                unit = "J/m²" if param == "INTERFACE_ENERGY" else "nm" if param == "INTERFACE_WIDTH" else "K"
+                orig_values.append(f"{param.split('_')[-1]}: {orig_val:.4f} {unit}")
+            hover_text.append("<br>".join(orig_values))
+        
         # Convert Matplotlib colormap to Plotly colorscale for categorical colormaps
         if ternary_colormap in ['tab10', 'tab20', 'tab20b', 'tab20c', 'Set1', 'Set2', 'Set3', 'Accent', 'Dark2', 'Paired', 'Pastel1', 'Pastel2']:
-            cmap = plt.get_cmap(ternary_colormap)
-            colors = [f'rgb({int(r*255)}, {int(g*255)}, {int(b*255)})' for r, g, b, _ in cmap(np.linspace(0, 1, cmap.N))]
-            colorscale = colors
+            cmap_ternary = plt.get_cmap(ternary_colormap)
+            colors = [f'rgb({int(r*255)}, {int(g*255)}, {int(b*255)})' for r, g, b, _ in cmap_ternary(np.linspace(0, 1, cmap_ternary.N))]
+            colorscale = [[i / (len(colors) - 1), color] for i, color in enumerate(colors)]
         else:
-            colorscale = None
+            colorscale = ternary_colormap
         
-        fig = px.scatter_ternary(
-            df_pivot,
-            a="Energy",
-            b="Width",
-            c="Temperature",
-            hover_name="paper_id",
-            color="paper_id",
-            color_discrete_sequence=colorscale if colorscale else None,
-            color_continuous_scale=ternary_colormap if not colorscale else None,
-            size=np.ones(len(df_pivot)) * ternary_marker_size,
-            opacity=alpha,
-            title=ternary_title
-        )
-        
-        fig.update_layout(
-            font_family=font_family,
-            font_size=font_size,
-            title_font_size=font_size + 2,
-            title_font_color=title_color,
-            legend_title_font_size=font_size,
-            legend_font_size=font_size - 2,
-            ternary=dict(
-                aaxis=dict(
-                    title=energy_label,
-                    gridcolor=ternary_grid_color,
-                    linewidth=ternary_grid_thickness
-                ),
-                baxis=dict(
-                    title=width_label,
-                    gridcolor=ternary_grid_color,
-                    linewidth=ternary_grid_thickness
-                ),
-                caxis=dict(
-                    title=temp_label,
-                    gridcolor=ternary_grid_color,
-                    linewidth=ternary_grid_thickness
-                )
+        # Add scatter trace with enhanced styling
+        fig.add_trace(go.Scatterternary({
+            'a': df_pivot['Energy'],
+            'b': df_pivot['Width'],
+            'c': df_pivot['Temperature'],
+            'mode': 'markers',
+            'marker': {
+                'size': ternary_marker_size * marker_scale,
+                'color': df_pivot.index,
+                'colorscale': colorscale,
+                'opacity': alpha,
+                'line': {
+                    'width': ternary_grid_thickness/2,
+                    'color': ternary_grid_color
+                }
+            },
+            'text': hover_text,
+            'hoverinfo': 'text+a+b+c',
+            'hovertemplate': (
+                "<b>Paper: %{text}</b><br><br>" +
+                "Normalized Values:<br>" +
+                "Energy: %{a:.3f}<br>" +
+                "Width: %{b:.3f}<br>" +
+                "Temperature: %{c:.3f}<extra></extra>"
             )
-        )
+        }))
+        
+        # Enhanced axis configuration
+        axis_config = {
+            'aaxis': {
+                'title': {
+                    'text': f'<b>{energy_label}</b>',
+                    'font': {'size': label_font_size}
+                },
+                'tickfont': {'size': font_size-2},
+                'gridcolor': ternary_grid_color,
+                'linewidth': ternary_grid_thickness,
+                'min': 0.01
+            },
+            'baxis': {
+                'title': {
+                    'text': f'<b>{width_label}</b>',
+                    'font': {'size': label_font_size}
+                },
+                'tickfont': {'size': font_size-2},
+                'gridcolor': ternary_grid_color,
+                'linewidth': ternary_grid_thickness,
+                'min': 0.01
+            },
+            'caxis': {
+                'title': {
+                    'text': f'<b>{temp_label}</b>',
+                    'font': {'size': label_font_size}
+                },
+                'tickfont': {'size': font_size-2},
+                'gridcolor': ternary_grid_color,
+                'linewidth': ternary_grid_thickness,
+                'min': 0.01
+            }
+        }
+        
+        # Add original scale indicators if requested
+        if show_original_scale:
+            axis_config['aaxis']['title']['text'] += (
+                f"<br><span style='font-size:{font_size-2}px'>" +
+                f"({min_max_dict['INTERFACE_ENERGY']['min']:.2f}-{min_max_dict['INTERFACE_ENERGY']['max']:.2f} J/m²)</span>"
+            )
+            axis_config['baxis']['title']['text'] += (
+                f"<br><span style='font-size:{font_size-2}px'>" +
+                f"({min_max_dict['INTERFACE_WIDTH']['min']:.2f}-{min_max_dict['INTERFACE_WIDTH']['max']:.2f} nm)</span>"
+            )
+            axis_config['caxis']['title']['text'] += (
+                f"<br><span style='font-size:{font_size-2}px'>" +
+                f"({min_max_dict['TEMPERATURE_K']['min']:.0f}-{min_max_dict['TEMPERATURE_K']['max']:.0f} K)</span>"
+            )
+        
+        # Update layout with enhanced styling
+        fig.update_layout({
+            'title': {
+                'text': f'<b>{ternary_title}</b>',
+                'font': {'size': font_size+4},
+                'x': 0.5,
+                'xanchor': 'center'
+            },
+            'ternary': axis_config,
+            'showlegend': False,
+            'hoverlabel': {
+                'font': {'size': font_size},
+                'bgcolor': 'rgba(255, 255, 255, 0.9)',
+                'bordercolor': '#AAA'
+            },
+            'margin': {'l': 80, 'r': 80, 't': 100, 'b': 80}
+        })
         
         st.plotly_chart(fig, use_container_width=True)
         
         # Inverse scale legend
         st.subheader("Inverse Scale Legend for Normalized Ternary Plot")
-        st.markdown("The normalized ternary plot uses values scaled to [0, 1]. The table below shows the corresponding original values for interface energy (J/m²), interface width (nm), and temperature (K) at key normalized points.")
-        
         inverse_scale_data = {
             'Normalized Value': [0.0, 0.5, 1.0]
         }
         for param, label in zip(['INTERFACE_ENERGY', 'INTERFACE_WIDTH', 'TEMPERATURE_K'], [energy_label, width_label, temp_label]):
             min_val = min_max_dict[param]['min']
-            max_val = min_max_dict[param]['max'] - 1e-6
+            max_val = min_max_dict[param]['max']
             inverse_scale_data[label] = [
-                round(min_val, 3),
-                round(min_val + 0.5 * (max_val - min_val), 3),
-                round(max_val, 3)
+                round(min_val, 4),
+                round((min_val + max_val) / 2, 4),
+                round(max_val, 4)
             ]
-        
         inverse_scale_df = pd.DataFrame(inverse_scale_data)
         st.dataframe(inverse_scale_df, use_container_width=True)
         
+        # Download ternary data
         st.download_button(
-            label="Download Inverse Scale Legend CSV",
-            data=inverse_scale_df.to_csv(index=False),
-            file_name="ternary_inverse_scale.csv",
-            mime="text/csv"
-        )
-        
-        # Download normalized ternary data
-        st.download_button(
-            label="Download Normalized Ternary Data CSV",
+            label="Download Normalized Ternary Plot Data (CSV)",
             data=df_pivot.to_csv(index=False),
-            file_name="ternary_params_normalized.csv",
+            file_name="ternary_plot_normalized.csv",
             mime="text/csv"
         )
 
+    else:
+        st.warning("Insufficient data for ternary plot. Requires interface energy, width, and temperature parameters.")
+
     # Ternary Distribution (Inverse Scaled)
-    st.subheader("Ternary Distribution of Inverse Scaled Parameters")
+    st.subheader("Enhanced Ternary Distribution of Inverse Scaled Parameters")
     if not ternary_df.empty:
         # Use original values for inverse scaled ternary plot
         df_inverse = ternary_df.copy()
@@ -678,10 +735,8 @@ def visualize_ner_results(df, pmi_results):
             index='paper_id',
             columns='entity_label',
             values='value',
-            aggfunc='mean'  # Use mean if multiple values per paper
-        ).reset_index()
-        
-        df_inverse_pivot = df_inverse_pivot.fillna(0)  # Fill NaN with 0 for ternary plot
+            aggfunc='mean'
+        ).reset_index().fillna(0)
         
         # Rename columns for ternary plot
         df_inverse_pivot = df_inverse_pivot.rename(columns={
@@ -696,66 +751,180 @@ def visualize_ner_results(df, pmi_results):
         df_inverse_pivot['Width'] = df_inverse_pivot['Width'] / df_inverse_pivot['sum'].replace(0, 1)
         df_inverse_pivot['Temperature'] = df_inverse_pivot['Temperature'] / df_inverse_pivot['sum'].replace(0, 1)
         
-        # Create axis labels with original ranges
-        energy_axis_label = f"{energy_label} [{min_max_dict['INTERFACE_ENERGY']['min']:.3f} to {min_max_dict['INTERFACE_ENERGY']['max']-1e-6:.3f} J/m²]"
-        width_axis_label = f"{width_label} [{min_max_dict['INTERFACE_WIDTH']['min']:.3f} to {min_max_dict['INTERFACE_WIDTH']['max']-1e-6:.3f} nm]"
-        temp_axis_label = f"{temp_label} [{min_max_dict['TEMPERATURE_K']['min']:.3f} to {min_max_dict['TEMPERATURE_K']['max']-1e-6:.3f} K]"
+        # Create enhanced ternary plot
+        fig_inverse = go.Figure()
         
-        # Plot inverse scaled ternary diagram with Plotly
+        # Create hover text with original values
+        hover_text = []
+        for _, row in df_inverse_pivot.iterrows():
+            paper_id = row['paper_id']
+            orig_values = []
+            for param in ['INTERFACE_ENERGY', 'INTERFACE_WIDTH', 'TEMPERATURE_K']:
+                orig_val = df_inverse[(df_inverse['paper_id'] == paper_id) & 
+                                     (df_inverse['entity_label'] == param)]['value'].mean()
+                unit = "J/m²" if param == "INTERFACE_ENERGY" else "nm" if param == "INTERFACE_WIDTH" else "K"
+                orig_values.append(f"{param.split('_')[-1]}: {orig_val:.4f} {unit}")
+            hover_text.append("<br>".join(orig_values))
+        
+        # Convert Matplotlib colormap to Plotly colorscale for categorical colormaps
         if ternary_colormap in ['tab10', 'tab20', 'tab20b', 'tab20c', 'Set1', 'Set2', 'Set3', 'Accent', 'Dark2', 'Paired', 'Pastel1', 'Pastel2']:
-            cmap = plt.get_cmap(ternary_colormap)
-            colors = [f'rgb({int(r*255)}, {int(g*255)}, {int(b*255)})' for r, g, b, _ in cmap(np.linspace(0, 1, cmap.N))]
-            colorscale = colors
+            cmap_ternary = plt.get_cmap(ternary_colormap)
+            colors = [f'rgb({int(r*255)}, {int(g*255)}, {int(b*255)})' for r, g, b, _ in cmap_ternary(np.linspace(0, 1, cmap_ternary.N))]
+            colorscale = [[i / (len(colors) - 1), color] for i, color in enumerate(colors)]
         else:
-            colorscale = None
+            colorscale = ternary_colormap
         
-        fig_inverse = px.scatter_ternary(
-            df_inverse_pivot,
-            a="Energy",
-            b="Width",
-            c="Temperature",
-            hover_name="paper_id",
-            color="paper_id",
-            color_discrete_sequence=colorscale if colorscale else None,
-            color_continuous_scale=ternary_colormap if not colorscale else None,
-            size=np.ones(len(df_inverse_pivot)) * ternary_marker_size,
-            opacity=alpha,
-            title=ternary_inverse_title
-        )
-        
-        fig_inverse.update_layout(
-            font_family=font_family,
-            font_size=font_size,
-            title_font_size=font_size + 2,
-            title_font_color=title_color,
-            legend_title_font_size=font_size,
-            legend_font_size=font_size - 2,
-            ternary=dict(
-                aaxis=dict(
-                    title=energy_axis_label,
-                    gridcolor=ternary_grid_color,
-                    linewidth=ternary_grid_thickness
-                ),
-                baxis=dict(
-                    title=width_axis_label,
-                    gridcolor=ternary_grid_color,
-                    linewidth=ternary_grid_thickness
-                ),
-                caxis=dict(
-                    title=temp_axis_label,
-                    gridcolor=ternary_grid_color,
-                    linewidth=ternary_grid_thickness
-                )
+        # Add scatter trace with enhanced styling
+        fig_inverse.add_trace(go.Scatterternary({
+            'a': df_inverse_pivot['Energy'],
+            'b': df_inverse_pivot['Width'],
+            'c': df_inverse_pivot['Temperature'],
+            'mode': 'markers',
+            'marker': {
+                'size': ternary_marker_size * marker_scale,
+                'color': df_inverse_pivot.index,
+                'colorscale': colorscale,
+                'opacity': alpha,
+                'line': {
+                    'width': ternary_grid_thickness/2,
+                    'color': ternary_grid_color
+                }
+            },
+            'text': hover_text,
+            'hoverinfo': 'text+a+b+c',
+            'hovertemplate': (
+                "<b>Paper: %{text}</b><br><br>" +
+                "Normalized Proportions:<br>" +
+                "Energy: %{a:.3f}<br>" +
+                "Width: %{b:.3f}<br>" +
+                "Temperature: %{c:.3f}<extra></extra>"
             )
-        )
+        }))
+        
+        # Create axis labels with original ranges
+        energy_axis_label = f"<b>{energy_label}</b>"
+        width_axis_label = f"<b>{width_label}</b>"
+        temp_axis_label = f"<b>{temp_label}</b>"
+        
+        # Calculate tick values in physical units (approximation)
+        tickvals = [0.0, 0.5, 1.0]
+        energy_ticks = [
+            min_max_dict['INTERFACE_ENERGY']['min'],
+            (min_max_dict['INTERFACE_ENERGY']['min'] + min_max_dict['INTERFACE_ENERGY']['max']) / 2,
+            min_max_dict['INTERFACE_ENERGY']['max']
+        ]
+        width_ticks = [
+            min_max_dict['INTERFACE_WIDTH']['min'],
+            (min_max_dict['INTERFACE_WIDTH']['min'] + min_max_dict['INTERFACE_WIDTH']['max']) / 2,
+            min_max_dict['INTERFACE_WIDTH']['max']
+        ]
+        temp_ticks = [
+            min_max_dict['TEMPERATURE_K']['min'],
+            (min_max_dict['TEMPERATURE_K']['min'] + min_max_dict['TEMPERATURE_K']['max']) / 2,
+            min_max_dict['TEMPERATURE_K']['max']
+        ]
+        
+        # Format tick labels
+        energy_ticktext = [f"{val:.3f} J/m²" for val in energy_ticks]
+        width_ticktext = [f"{val:.3f} nm" for val in width_ticks]
+        temp_ticktext = [f"{val:.0f} K" for val in temp_ticks]
+        
+        # Add original scale indicators if requested
+        if show_original_scale:
+            energy_axis_label += (
+                f"<br><span style='font-size:{font_size-2}px'>" +
+                f"({min_max_dict['INTERFACE_ENERGY']['min']:.2f}-{min_max_dict['INTERFACE_ENERGY']['max']:.2f} J/m²)</span>"
+            )
+            width_axis_label += (
+                f"<br><span style='font-size:{font_size-2}px'>" +
+                f"({min_max_dict['INTERFACE_WIDTH']['min']:.2f}-{min_max_dict['INTERFACE_WIDTH']['max']:.2f} nm)</span>"
+            )
+            temp_axis_label += (
+                f"<br><span style='font-size:{font_size-2}px'>" +
+                f"({min_max_dict['TEMPERATURE_K']['min']:.0f}-{min_max_dict['TEMPERATURE_K']['max']:.0f} K)</span>"
+            )
+        
+        # Enhanced axis configuration
+        axis_config = {
+            'aaxis': {
+                'title': {
+                    'text': energy_axis_label,
+                    'font': {'size': label_font_size}
+                },
+                'tickfont': {'size': font_size-2},
+                'gridcolor': ternary_grid_color,
+                'linewidth': ternary_grid_thickness,
+                'min': 0.01,
+                'tickvals': tickvals,
+                'ticktext': energy_ticktext
+            },
+            'baxis': {
+                'title': {
+                    'text': width_axis_label,
+                    'font': {'size': label_font_size}
+                },
+                'tickfont': {'size': font_size-2},
+                'gridcolor': ternary_grid_color,
+                'linewidth': ternary_grid_thickness,
+                'min': 0.01,
+                'tickvals': tickvals,
+                'ticktext': width_ticktext
+            },
+            'caxis': {
+                'title': {
+                    'text': temp_axis_label,
+                    'font': {'size': label_font_size}
+                },
+                'tickfont': {'size': font_size-2},
+                'gridcolor': ternary_grid_color,
+                'linewidth': ternary_grid_thickness,
+                'min': 0.01,
+                'tickvals': tickvals,
+                'ticktext': temp_ticktext
+            }
+        }
+        
+        # Update layout with enhanced styling
+        fig_inverse.update_layout({
+            'title': {
+                'text': f'<b>{ternary_inverse_title}</b>',
+                'font': {'size': font_size+4},
+                'x': 0.5,
+                'xanchor': 'center'
+            },
+            'ternary': axis_config,
+            'showlegend': False,
+            'hoverlabel': {
+                'font': {'size': font_size},
+                'bgcolor': 'rgba(255, 255, 255, 0.9)',
+                'bordercolor': '#AAA'
+            },
+            'margin': {'l': 80, 'r': 80, 't': 100, 'b': 80}
+        })
         
         st.plotly_chart(fig_inverse, use_container_width=True)
         
+        # Inverse scale legend
+        st.subheader("Inverse Scale Legend for Inverse Scaled Ternary Plot")
+        inverse_scale_data = {
+            'Normalized Proportion': [0.0, 0.5, 1.0]
+        }
+        for param, label in zip(['INTERFACE_ENERGY', 'INTERFACE_WIDTH', 'TEMPERATURE_K'], [energy_label, width_label, temp_label]):
+            min_val = min_max_dict[param]['min']
+            max_val = min_max_dict[param]['max']
+            inverse_scale_data[label] = [
+                round(min_val, 4),
+                round((min_val + max_val) / 2, 4),
+                round(max_val, 4)
+            ]
+        inverse_scale_df = pd.DataFrame(inverse_scale_data)
+        st.dataframe(inverse_scale_df, use_container_width=True)
+        
         # Download inverse scaled ternary data
         st.download_button(
-            label="Download Inverse Scaled Ternary Data CSV",
+            label="Download Inverse Scaled Ternary Plot Data (CSV)",
             data=df_inverse_pivot.to_csv(index=False),
-            file_name="ternary_params_inverse_scaled.csv",
+            file_name="ternary_plot_inverse_scaled.csv",
             mime="text/csv"
         )
     else:

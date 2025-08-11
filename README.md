@@ -52,6 +52,9 @@ Basic Visualization
 Enhanced Visualization 
 [![meaningtowords](https://img.shields.io/badge/attnMechEnhancedVisual-streamlit-red)](https://energymehanics-informatics-enhanceddatavisualization.streamlit.app/)
 
+# Informatics based quantification of interface energy (J/m2) and diffuse interface width (nm) for phase field model
+
+[![meaningtowords](https://img.shields.io/badge/nerInterface-streamlit-red)](https://interface-attributes-ner.streamlit.app/)
 
 
 # Phase Field Model

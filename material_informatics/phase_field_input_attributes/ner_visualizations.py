@@ -2,7 +2,6 @@ import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib
-import matplotlib.cm as cm
 import numpy as np
 import seaborn as sns
 import logging
@@ -46,7 +45,7 @@ default_colors = {
 logging.info(f"Default colors: {default_colors}")
 
 # Get all available Matplotlib colormaps
-colormaps = sorted(cm.cmap_d.keys())  # Includes jet, rainbow, and over 50 others
+colormaps = sorted(matplotlib.colormaps)  # Includes jet, rainbow, and over 50 others
 default_colormap = 'tab20'
 
 # Load NER data
@@ -583,13 +582,13 @@ def visualize_ner_results(df, pmi_results):
         df_pivot['Temperature'] = df_pivot['Temperature'] / df_pivot['sum'].replace(0, 1)
         
         # Plot normalized ternary diagram with Plotly
-        # Convert Matplotlib colormap to Plotly colorscale
-        if ternary_colormap == 'tab20':
-            tab20_cmap = cm.get_cmap('tab20')
-            colors = [f'rgb({int(r*255)}, {int(g*255)}, {int(b*255)})' for r, g, b, _ in tab20_cmap(np.linspace(0, 1, 20))]
-            colorscale = [[i / (len(colors) - 1), color] for i, color in enumerate(colors)]
+        # Convert Matplotlib colormap to Plotly colorscale for categorical colormaps
+        if ternary_colormap in ['tab10', 'tab20', 'tab20b', 'tab20c', 'Set1', 'Set2', 'Set3', 'Accent', 'Dark2', 'Paired', 'Pastel1', 'Pastel2']:
+            cmap = plt.get_cmap(ternary_colormap)
+            colors = [f'rgb({int(r*255)}, {int(g*255)}, {int(b*255)})' for r, g, b, _ in cmap(np.linspace(0, 1, cmap.N))]
+            colorscale = colors
         else:
-            colorscale = ternary_colormap
+            colorscale = None
         
         fig = px.scatter_ternary(
             df_pivot,
@@ -598,8 +597,8 @@ def visualize_ner_results(df, pmi_results):
             c="Temperature",
             hover_name="paper_id",
             color="paper_id",
-            color_discrete_sequence=colorscale if ternary_colormap == 'tab20' else None,
-            color_continuous_scale=ternary_colormap if ternary_colormap != 'tab20' else None,
+            color_discrete_sequence=colorscale if colorscale else None,
+            color_continuous_scale=ternary_colormap if not colorscale else None,
             size=np.ones(len(df_pivot)) * ternary_marker_size,
             opacity=alpha,
             title=ternary_title
@@ -703,6 +702,13 @@ def visualize_ner_results(df, pmi_results):
         temp_axis_label = f"{temp_label} [{min_max_dict['TEMPERATURE_K']['min']:.3f} to {min_max_dict['TEMPERATURE_K']['max']-1e-6:.3f} K]"
         
         # Plot inverse scaled ternary diagram with Plotly
+        if ternary_colormap in ['tab10', 'tab20', 'tab20b', 'tab20c', 'Set1', 'Set2', 'Set3', 'Accent', 'Dark2', 'Paired', 'Pastel1', 'Pastel2']:
+            cmap = plt.get_cmap(ternary_colormap)
+            colors = [f'rgb({int(r*255)}, {int(g*255)}, {int(b*255)})' for r, g, b, _ in cmap(np.linspace(0, 1, cmap.N))]
+            colorscale = colors
+        else:
+            colorscale = None
+        
         fig_inverse = px.scatter_ternary(
             df_inverse_pivot,
             a="Energy",
@@ -710,8 +716,8 @@ def visualize_ner_results(df, pmi_results):
             c="Temperature",
             hover_name="paper_id",
             color="paper_id",
-            color_discrete_sequence=colorscale if ternary_colormap == 'tab20' else None,
-            color_continuous_scale=ternary_colormap if ternary_colormap != 'tab20' else None,
+            color_discrete_sequence=colorscale if colorscale else None,
+            color_continuous_scale=ternary_colormap if not colorscale else None,
             size=np.ones(len(df_inverse_pivot)) * ternary_marker_size,
             opacity=alpha,
             title=ternary_inverse_title

@@ -86,3 +86,11 @@ Two Models
 Three Models
 [![meaningtowords](https://img.shields.io/badge/phaseeigenstrain-streamlit-red)](https://compute-eigenstrain.streamlit.app/)
 
+
+DFT Computation
+
+Structural Optimization
+
+[![atomisticmechanics](https://img.shields.io/badge/vcrelaxlisn-streamlit-red)](https://structural-optimization-lithium-tin.streamlit.app/)
+
+

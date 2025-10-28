@@ -182,4 +182,17 @@ if run_expansion:
         )
         atoms_li2sn5.calc = calc_li2sn5
         ecf_li2sn5 = ExpCellFilter(atoms_li2sn5)
-        opt_li2sn5 = BFGS(ecf_li2sn5, logfile
+        opt_li2sn5 = BFGS(ecf_li2sn5, logfile='Li2Sn5_relax.log')
+        opt_li2sn5.run(fmax=forc_conv_thr_exp)
+        num_sn_li2sn5 = atoms_li2sn5.get_chemical_symbols().count('Sn')  # 10
+        v_li2sn5 = atoms_li2sn5.get_volume() / num_sn_li2sn5
+
+        expansion = (v_li2sn5 - v_sn) / v_sn * 100
+
+        st.success("Volume Expansion calculation complete!")
+        st.write(f"Volume per Sn in BCT Sn: {v_sn:.6f} Å³")
+        st.write(f"Volume per Sn in Li2Sn5: {v_li2sn5:.6f} Å³")
+        st.write(f"Volume expansion: {expansion:.2f}%")
+
+    except Exception as e:
+        st.error(f"Calculation failed: {e}")

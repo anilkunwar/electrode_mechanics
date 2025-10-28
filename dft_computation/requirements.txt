@@ -3,3 +3,4 @@ ase
 numpy
 scipy
 gpaw
+pandas

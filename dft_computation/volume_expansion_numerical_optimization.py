@@ -1,4 +1,5 @@
 import streamlit as st
+import numpy as np
 from ase import Atoms
 from ase.optimize import BFGS, LBFGS
 from ase.spacegroup import crystal
@@ -55,25 +56,25 @@ structure = st.selectbox("Select Structure", options=['Li (BCC)', 'Sn (diamond c
 
 # Default parameters based on structure (high accuracy baseline)
 if structure == 'Li (BCC)':
-    default_ka_kb = int(10 * kpts_factor)
-    default_kc = int(10 * kpts_factor)
-    default_ecut = int(400 * ecut_factor)
+    default_ka_kb = max(2, int(10 * kpts_factor))
+    default_kc = max(2, int(10 * kpts_factor))
+    default_ecut = max(200, int(400 * ecut_factor))
     default_a = 3.49
 elif structure == 'Sn (diamond cubic)':
-    default_ka_kb = int(8 * kpts_factor)
-    default_kc = int(8 * kpts_factor)
-    default_ecut = int(500 * ecut_factor)
+    default_ka_kb = max(2, int(8 * kpts_factor))
+    default_kc = max(2, int(8 * kpts_factor))
+    default_ecut = max(200, int(500 * ecut_factor))
     default_a = 6.49
 elif structure == 'Sn (BCT)':
-    default_ka_kb = int(8 * kpts_factor)
-    default_kc = int(12 * kpts_factor)
-    default_ecut = int(500 * ecut_factor)
+    default_ka_kb = max(2, int(8 * kpts_factor))
+    default_kc = max(2, int(12 * kpts_factor))
+    default_ecut = max(200, int(500 * ecut_factor))
     default_a = 5.83
     default_c = 3.18
 elif structure == 'Li2Sn5':
-    default_ka_kb = int(6 * kpts_factor)
-    default_kc = int(16 * kpts_factor)
-    default_ecut = int(500 * ecut_factor)
+    default_ka_kb = max(2, int(6 * kpts_factor))
+    default_kc = max(2, int(16 * kpts_factor))
+    default_ecut = max(200, int(500 * ecut_factor))
     default_a = 10.274
     default_c = 3.125
 
@@ -275,7 +276,7 @@ if run_calc:
 # Fast volume expansion calculation
 st.header("⚡ Fast Volume Expansion Analysis")
 
-def run_fast_expansion():
+def run_fast_expansion_calculation():
     """Run optimized volume expansion calculation"""
     try:
         # Use current calculation mode settings for expansion
@@ -348,7 +349,12 @@ def run_fast_expansion():
         opt_li2sn5 = LBFGS(ecf_li2sn5, logfile='Li2Sn5_fast_relax.log')
         opt_li2sn5.run(fmax=forc_conv_exp, steps=max_steps_exp)
         
-        num_sn_li2sn5 = sum(1 for atom in atoms_li2sn5 if atom.symbol == 'Sn')
+        # Count Sn atoms in Li2Sn5 structure
+        num_sn_li2sn5 = 0
+        for atom in atoms_li2sn5:
+            if atom.symbol == 'Sn':
+                num_sn_li2sn5 += 1
+                
         v_li2sn5 = atoms_li2sn5.get_volume() / num_sn_li2sn5
 
         expansion = (v_li2sn5 - v_sn) / v_sn * 100
@@ -367,12 +373,14 @@ def run_fast_expansion():
 
     except Exception as e:
         st.error(f"Fast expansion calculation failed: {e}")
+        st.error(f"Error type: {type(e).__name__}")
 
-run_fast_expansion = st.button("🚀 Compute Fast Volume Expansion")
+# Use a different variable name for the button to avoid conflicts
+run_fast_expansion_button = st.button("🚀 Compute Fast Volume Expansion")
 
-if run_fast_expansion:
+if run_fast_expansion_button:
     st.info(f"Starting fast volume expansion in {calculation_mode} mode...")
-    run_fast_expansion()
+    run_fast_expansion_calculation()
 
 # Tips for further speedup
 with st.expander("💡 Additional Speed Optimization Tips"):

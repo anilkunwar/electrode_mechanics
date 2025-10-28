@@ -97,3 +97,7 @@ Structural Optimization
 
 [![atomisticmechanics](https://img.shields.io/badge/vcrelaxlisngpaw2-streamlit-red)](https://structural-optimization-lithium-tin3.streamlit.app/) (runs in cloud environment, ASE uses GPAW calculator)
 
+Volume Expansion During Lithiation
+
+
+[![atomisticmechanics](https://img.shields.io/badge/deltavolumebasic-streamlit-red)](https://volume-expansion-lithium-tin.streamlit.app/) (runs in cloud environment, ASE uses GPAW calculator)

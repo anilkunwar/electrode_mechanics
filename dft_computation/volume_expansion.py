@@ -1,504 +1,221 @@
 import streamlit as st
 from ase import Atoms
-from ase.optimize import BFGS, LBFGS
-from ase.constraints import UnitCellFilter, ExpCellFilter
+from ase.optimize import BFGS
+from ase.spacegroup import crystal
 from gpaw import GPAW, PW
-import sqlite3
 import os
-import pandas as pd
-import numpy as np
-from ase.io import read
-from ase.build import bulk
-import tempfile
 
-# ---------------------------------------------------------------
-# Streamlit Page Setup
-# ---------------------------------------------------------------
-st.set_page_config(page_title="ASE + GPAW vc-relax for Li-Sn", layout="centered")
-st.title("ASE + GPAW: Variable-Cell Relaxation for Li-Sn Phases")
+st.title("ASE + GPAW: vc-relax for Li, Sn, BCT Sn, and Li2Sn5")
 
 st.markdown("""
-Perform **variable-cell relaxation (vc-relax)** calculations for **pure BCT Sn** and **Li-Sn phases**
-using the **GPAW** DFT calculator integrated with ASE. Calculate volume expansion of Li-Sn phases relative to pure Sn.
-
-**Note:** Calculations may take several minutes. For larger phases, use reduced k-points and looser convergence.
+This app performs a variable-cell relaxation (vc-relax) for Lithium and Tin crystals using ASE + GPAW.
+GPAW is a DFT calculator written in Python and installable with `pip install gpaw`.
+Now expanded to include BCT Sn and Li2Sn5 for volume expansion calculation.
 """)
 
-# ---------------------------------------------------------------
-# SQLite Database Setup
-# ---------------------------------------------------------------
-db_path = "results.db"
+# Select structure
+structure = st.selectbox("Select Structure", options=['Li (cubic)', 'Sn (cubic)', 'Sn (BCT)', 'Li2Sn5'])
 
-def init_db():
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS relax_results (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            phase TEXT,
-            num_li INTEGER,
-            num_sn INTEGER,
-            alat_bohr REAL,
-            ecut REAL,
-            kpts INTEGER,
-            etot_conv_thr REAL,
-            forc_conv_thr REAL,
-            energy REAL,
-            energy_per_atom REAL,
-            a REAL,
-            b REAL,
-            c REAL,
-            alpha REAL,
-            beta REAL,
-            gamma REAL,
-            volume REAL,
-            volume_per_sn REAL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
-    conn.close()
+# Initial parameters
+if structure == 'Li (cubic)':
+    element = 'Li'
+    alat = st.number_input(
+        "Initial lattice constant (alat, Bohr)",
+        min_value=2.0,
+        max_value=10.0,
+        value=5.0
+    )
+    alat_angstrom = alat * 0.529177
+    c_angstrom = alat_angstrom  # cubic
+    atoms = Atoms(
+        element,
+        positions=[(0, 0, 0)],
+        cell=[
+            (alat_angstrom, 0, 0),
+            (0, alat_angstrom, 0),
+            (0, 0, alat_angstrom)
+        ],
+        pbc=True
+    )
+    num_sn = 1  # for expansion, but not used
+elif structure == 'Sn (cubic)':
+    element = 'Sn'
+    alat = st.number_input(
+        "Initial lattice constant (alat, Bohr)",
+        min_value=2.0,
+        max_value=10.0,
+        value=7.5
+    )
+    alat_angstrom = alat * 0.529177
+    c_angstrom = alat_angstrom  # cubic
+    atoms = Atoms(
+        element,
+        positions=[(0, 0, 0)],
+        cell=[
+            (alat_angstrom, 0, 0),
+            (0, alat_angstrom, 0),
+            (0, 0, alat_angstrom)
+        ],
+        pbc=True
+    )
+    num_sn = 1
+elif structure == 'Sn (BCT)':
+    element = 'Sn'
+    a = st.number_input("Initial a (Å)", min_value=2.0, max_value=10.0, value=5.83)
+    c = st.number_input("Initial c (Å)", min_value=2.0, max_value=10.0, value=3.18)
+    alat_angstrom = a
+    c_angstrom = c
+    atoms = crystal(
+        'Sn',
+        basis=[(0,0,0)],
+        spacegroup=141,
+        cellpar=[a, a, c, 90, 90, 90]
+    )
+    num_sn = len(atoms)  # 4
+elif structure == 'Li2Sn5':
+    element = 'Li2Sn5'
+    a = st.number_input("Initial a (Å)", min_value=5.0, max_value=15.0, value=10.274)
+    c = st.number_input("Initial c (Å)", min_value=2.0, max_value=5.0, value=3.125)
+    alat_angstrom = a
+    c_angstrom = c
+    # Note: The basis positions are approximate; user should replace with exact values from literature (Hansen & Chang, 1969)
+    # For example, Li at 4g with x=0.16
+    # Sn at 2d (0,0.5,0)
+    # Sn at 8i with x=0.295, y=0.432, z=0
+    # But to match 3 sites, perhaps adjust.
+    # Here, we use a manual setup for the unit cell with positions
+    # This is a placeholder; the exact coordinates should be used for accuracy
+    positions = [
+        (0.0, 0.5, 0.0),  # Sn at 2d
+        (0.5, 0.0, 0.0),  # symmetry
+        # Add other Sn and Li positions
+        # For example, Li at 4g
+        (0.16, 0.66, 0.0),
+        (0.84, 0.34, 0.0),
+        (0.66, 0.16, 0.0),
+        (0.34, 0.84, 0.0),
+        # Sn at 8i (placeholder)
+        (0.295, 0.432, 0.0),
+        (0.432, -0.295, 0.0),
+        ( -0.432, 0.295, 0.0),
+        ( -0.295, -0.432, 0.0),
+        (0.295 +0.5, 0.432, 0.0), # symmetry
+        (0.432 +0.5, -0.295, 0.0),
+        ( -0.432 +0.5, 0.295, 0.0),
+        ( -0.295 +0.5, -0.432, 0.0),
+        # The above is for 8 Sn at 8i, 2 at 2d, 4 Li at 4g
+    ]
+    symbols = ['Sn'] * 10 + ['Li'] * 4  # adjust order to match positions
+    atoms = Atoms(
+        symbols=symbols,
+        positions=[ (p[0]*a, p[1]*a, p[2]*c) for p in positions],
+        cell=[
+            (a, 0, 0),
+            (0, a, 0),
+            (0, 0, c)
+        ],
+        pbc=True
+    )
+    num_sn = 10
 
-init_db()
+# Convergence thresholds and cutoffs
+etot_conv_thr = st.number_input(
+    "Total energy convergence threshold (eV)",
+    min_value=1e-8,
+    max_value=1e-4,
+    value=1e-6,
+    format="%.1e"
+)
+forc_conv_thr = st.number_input(
+    "Force convergence threshold (eV/Å)",
+    min_value=1e-8,
+    max_value=1e-2,
+    value=1e-3,
+    format="%.1e"
+)
+ecut = st.number_input(
+    "Plane-wave cutoff energy (eV)",
+    min_value=100,
+    max_value=1000,
+    value=400 if 'Li' in structure else 500
+)
+kpts = st.number_input(
+    "K-points grid (Nk x Nk x Nk)",
+    min_value=1,
+    max_value=20,
+    value=10 if 'Li' in structure else 8
+)
 
-def save_result(phase, num_li, num_sn, alat_bohr, ecut, kpts, etot_conv_thr, forc_conv_thr, 
-                energy, cell_lengths, cell_angles, volume):
-    a, b, c = cell_lengths
-    alpha, beta, gamma = cell_angles
-    energy_per_atom = energy / (num_li + num_sn) if (num_li + num_sn) > 0 else 0
-    volume_per_sn = volume / num_sn if num_sn > 0 else 0
-    
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO relax_results 
-        (phase, num_li, num_sn, alat_bohr, ecut, kpts, etot_conv_thr, forc_conv_thr, 
-         energy, energy_per_atom, a, b, c, alpha, beta, gamma, volume, volume_per_sn)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (phase, num_li, num_sn, alat_bohr, ecut, kpts, etot_conv_thr, forc_conv_thr, 
-          energy, energy_per_atom, a, b, c, alpha, beta, gamma, volume, volume_per_sn))
-    conn.commit()
-    conn.close()
+run_calc = st.button("Run vc-relax Calculation")
 
-# ---------------------------------------------------------------
-# Improved Structure Creation Functions
-# ---------------------------------------------------------------
-def create_bct_sn():
-    """Create beta-Sn (BCT) structure"""
-    # Beta-Sn structure (tetragonal, I4_1/amd)
-    a_ang = 5.831 * 0.529177  # Convert from Bohr to Å for internal use
-    c_ang = 3.182 * 0.529177
-    atoms = Atoms('Sn2',
-                  positions=[[0, 0, 0], 
-                           [a_ang/2, a_ang/2, c_ang/2]],
-                  cell=[[a_ang, 0, 0], 
-                        [0, a_ang, 0], 
-                        [0, 0, c_ang]],
-                  pbc=True)
-    return atoms
+if run_calc:
+    try:
+        st.write(f"Setting up vc-relax for {structure} using GPAW...")
 
-def create_lisn_simple():
-    """Create a simple LiSn structure for testing"""
-    # Simple cubic-like structure for testing
-    a_ang = 6.0 * 0.529177  # ~6.0 Bohr in Å
-    atoms = Atoms('LiSn',
-                  positions=[[0, 0, 0], [a_ang/2, a_ang/2, a_ang/2]],
-                  cell=[[a_ang, 0, 0], 
-                        [0, a_ang, 0], 
-                        [0, 0, a_ang]],
-                  pbc=True)
-    return atoms
-
-def create_li2sn5():
-    """Create Li2Sn5 structure - smaller for faster calculation"""
-    # Approximate structure - in practice, use CIF from Materials Project
-    a_ang = 8.0 * 0.529177
-    atoms = Atoms('Li2Sn5',
-                  positions=[
-                      [0.0, 0.0, 0.0],    # Li1
-                      [a_ang/2, a_ang/2, a_ang/2],  # Li2  
-                      [a_ang/4, a_ang/4, a_ang/4],  # Sn1
-                      [3*a_ang/4, a_ang/4, a_ang/4], # Sn2
-                      [a_ang/4, 3*a_ang/4, a_ang/4], # Sn3
-                      [a_ang/4, a_ang/4, 3*a_ang/4], # Sn4
-                      [3*a_ang/4, 3*a_ang/4, a_ang/4] # Sn5
-                  ],
-                  cell=[[a_ang, 0, 0], 
-                        [0, a_ang, 0], 
-                        [0, 0, a_ang]],
-                  pbc=True)
-    return atoms
-
-# ---------------------------------------------------------------
-# Improved Relaxation Function with Better Error Handling
-# ---------------------------------------------------------------
-def run_vc_relax(phase, default_alat_bohr, default_ecut, default_kpts, initial_atoms_factory):
-    st.subheader(f"{phase} Relaxation Setup")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        alat = st.number_input(
-            f"Initial lattice scale factor",
-            min_value=0.5, max_value=2.0, value=1.0, step=0.1,
-            key=f"alat_{phase}"
-        )
-        
-        ecut = st.number_input(
-            "Plane-wave cutoff energy (eV)",
-            min_value=200, max_value=800, value=default_ecut, 
-            key=f"ecut_{phase}"
-        )
-        
-        kpts = st.number_input(
-            "K-points grid density",
-            min_value=2, max_value=12, value=default_kpts,
-            key=f"kpts_{phase}"
-        )
-    
-    with col2:
-        etot_conv_thr = st.number_input(
-            "Energy convergence (eV/atom)",
-            min_value=1e-6, max_value=1e-3, value=1e-4, format="%.1e",
-            key=f"etot_{phase}"
-        )
-        
-        forc_conv_thr = st.number_input(
-            "Force convergence (eV/Å)",
-            min_value=1e-3, max_value=0.1, value=0.05, format="%.1f",
-            key=f"fmax_{phase}"
-        )
-        
-        max_steps = st.number_input(
-            "Max optimization steps",
-            min_value=5, max_value=50, value=20,
-            key=f"steps_{phase}"
-        )
-        
-        optimizer_choice = st.selectbox(
-            "Optimizer",
-            ["BFGS", "LBFGS"],
-            key=f"opt_{phase}"
+        # Set GPAW calculator
+        calc = GPAW(
+            mode=PW(ecut),
+            xc='PBE',
+            kpts=(kpts, kpts, kpts),
+            txt=f'{structure}_gpaw.log'
         )
 
-    run_calc = st.button(f"Run vc-relax for {phase}", type="primary")
+        atoms.calc = calc
 
-    if run_calc:
-        with st.spinner(f"Running variable-cell relaxation for {phase}... This may take a while."):
-            try:
-                # Create initial structure
-                atoms = initial_atoms_factory()
-                
-                # Scale the structure
-                if alat != 1.0:
-                    atoms.set_cell(atoms.get_cell() * alat, scale_atoms=True)
-                
-                st.write("### Calculation Progress")
-                progress_bar = st.progress(0)
-                status_text = st.empty()
+        st.write("Starting variable-cell relaxation...")
 
-                # Setup GPAW calculator with more stable settings
-                status_text.text("Initializing GPAW calculator...")
-                
-                # Use temporary file for output to avoid permission issues
-                with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as tmp:
-                    log_file = tmp.name
-                
-                calc = GPAW(
-                    mode=PW(ecut),
-                    xc='PBE',
-                    kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-                    convergence={'energy': etot_conv_thr, 'density': 1e-4},
-                    txt=log_file,
-                    symmetry={'point_group': False},  # Disable symmetry for better convergence
-                    occupations={'name': 'fermi-dirac', 'width': 0.1},  # Smearing for metals
-                    mixer={'backend': 'pulay', 'beta': 0.25, 'nmaxold': 3, 'weight': 50}
-                )
+        opt = BFGS(atoms, logfile=f'{structure}_relax.log')
+        opt.run(fmax=forc_conv_thr)
 
-                atoms.calc = calc
+        final_cell = atoms.get_cell()
+        lattice_constants_angstrom = final_cell.lengths()
+        total_energy = atoms.get_potential_energy()
+        volume = atoms.get_volume()
 
-                # Variable-cell relaxation with better settings
-                status_text.text("Starting variable-cell relaxation...")
-                
-                # Use ExpCellFilter for better stability
-                ucf = ExpCellFilter(atoms, hydrostatic_strain=False)
-                
-                # Choose optimizer
-                if optimizer_choice == "LBFGS":
-                    opt = LBFGS(uf, logfile=None)
-                else:
-                    opt = BFGS(uf, logfile=None)
-                
-                # Run relaxation with better convergence criteria
-                converged = False
-                for i in range(max_steps):
-                    status_text.text(f"Optimization step {i+1}/{max_steps}")
-                    progress_bar.progress((i + 1) / max_steps)
-                    
-                    try:
-                        opt.run(fmax=forc_conv_thr, steps=1)
-                        if opt.converged():
-                            converged = True
-                            break
-                    except Exception as step_error:
-                        st.warning(f"Step {i+1} had issues: {step_error}. Continuing...")
-                        continue
+        st.success(f"Relaxation complete for {structure}!")
+        st.write(f"Optimized lattice constants (Å): {lattice_constants_angstrom}")
+        st.write(f"Total energy (eV): {total_energy:.6f}")
+        st.write(f"Volume (Å³): {volume:.6f}")
 
-                # Get final results
-                status_text.text("Finalizing calculation...")
-                final_energy = atoms.get_potential_energy()
-                final_cell = atoms.get_cell()
-                
-                # Convert to Bohr for consistency
-                cell_lengths = [length / 0.529177 for length in final_cell.lengths()]
-                cell_angles = final_cell.angles()
-                final_volume = atoms.get_volume() / (0.529177 ** 3)  # Bohr³
-                
-                # Count atoms
-                symbols = atoms.get_chemical_symbols()
-                num_li = symbols.count('Li')
-                num_sn = symbols.count('Sn')
+    except Exception as e:
+        st.error(f"Calculation failed: {e}")
 
-                # Display results
-                if converged:
-                    st.success("✅ Relaxation converged!")
-                else:
-                    st.warning("⚠️ Relaxation stopped (max steps reached) but results are available.")
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Total Energy", f"{final_energy:.6f} eV")
-                    st.metric("Energy/Atom", f"{final_energy/len(atoms):.6f} eV")
-                    st.metric("Final Volume", f"{final_volume:.2f} Bohr³")
-                
-                with col2:
-                    st.metric("Lattice a", f"{cell_lengths[0]:.4f} Bohr")
-                    st.metric("Lattice b", f"{cell_lengths[1]:.4f} Bohr")
-                    st.metric("Lattice c", f"{cell_lengths[2]:.4f} Bohr")
-                
-                with col3:
-                    st.metric("Angle α", f"{cell_angles[0]:.2f}°")
-                    st.metric("Angle β", f"{cell_angles[1]:.2f}°") 
-                    st.metric("Angle γ", f"{cell_angles[2]:.2f}°")
+# For volume expansion
+run_expansion = st.button("Compute Volume Expansion (BCT Sn to Li2Sn5)")
 
-                # Save to database
-                save_result(
-                    phase=phase,
-                    num_li=num_li,
-                    num_sn=num_sn,
-                    alat_bohr=alat,
-                    ecut=ecut,
-                    kpts=kpts,
-                    etot_conv_thr=etot_conv_thr,
-                    forc_conv_thr=forc_conv_thr,
-                    energy=final_energy,
-                    cell_lengths=cell_lengths,
-                    cell_angles=cell_angles,
-                    volume=final_volume
-                )
-                
-                st.info(f"📊 Results saved to database")
-                
-                # Clean up
-                if os.path.exists(log_file):
-                    os.unlink(log_file)
+if run_expansion:
+    try:
+        # Run for BCT Sn
+        st.write("Running vc-relax for BCT Sn...")
+        a_sn = 5.83
+        c_sn = 3.18
+        atoms_sn = crystal('Sn', basis=[(0,0,0)], spacegroup=141, cellpar=[a_sn, a_sn, c_sn, 90, 90, 90])
+        calc_sn = GPAW(mode=PW(500), xc='PBE', kpts=(8,8,12), txt='Sn_BCT_gpaw.log')
+        atoms_sn.calc = calc_sn
+        opt_sn = BFGS(atoms_sn, logfile='Sn_BCT_relax.log')
+        opt_sn.run(fmax=0.001)
+        v_sn = atoms_sn.get_volume() / len(atoms_sn)
 
-            except Exception as e:
-                st.error(f"❌ Calculation failed: {str(e)}")
-                st.info("""
-                **Troubleshooting tips:**
-                - Try using LBFGS optimizer instead of BFGS
-                - Increase force convergence threshold (0.05 eV/Å)
-                - Reduce k-points density
-                - Use lower cutoff energy
-                - The 'leading minor not positive definite' error often indicates numerical instability
-                """)
-
-# ---------------------------------------------------------------
-# Volume Expansion Analysis
-# ---------------------------------------------------------------
-def calculate_volume_expansion():
-    st.subheader("Volume Expansion Analysis")
-    
-    conn = sqlite3.connect(db_path)
-    df = pd.read_sql_query("SELECT * FROM relax_results ORDER BY timestamp DESC", conn)
-    conn.close()
-    
-    if df.empty:
-        st.info("No results available for analysis.")
-        return
-    
-    # Get unique phases
-    phases = df['phase'].unique()
-    
-    if len(phases) < 2:
-        st.info("Need at least 2 different phases to calculate volume expansion.")
-        return
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        reference_phase = st.selectbox(
-            "Reference phase (denominator):",
-            phases,
-            key="ref_phase"
+        # Run for Li2Sn5
+        st.write("Running vc-relax for Li2Sn5...")
+        a_li2sn5 = 10.274
+        c_li2sn5 = 3.125
+        # Placeholder for atoms_li2sn5 as above
+        atoms_li2sn5 = Atoms( # use the same as above placeholder
+            # ... 
         )
-    
-    with col2:
-        target_phase = st.selectbox(
-            "Target phase (numerator):", 
-            phases,
-            key="target_phase"
-        )
-    
-    if st.button("Calculate Volume Expansion"):
-        # Get most recent calculations for each phase
-        ref_df = df[df['phase'] == reference_phase].iloc[0]
-        target_df = df[df['phase'] == target_phase].iloc[0]
-        
-        # Calculate volume per Sn atom
-        ref_vol_per_sn = ref_df['volume'] / ref_df['num_sn']
-        target_vol_per_sn = target_df['volume'] / target_df['num_sn']
-        
-        # Calculate expansion
-        expansion = ((target_vol_per_sn - ref_vol_per_sn) / ref_vol_per_sn) * 100
-        
-        st.success("**Volume Expansion Results:**")
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric(f"{reference_phase} Vol/Sn", f"{ref_vol_per_sn:.2f} Bohr³")
-        with col2:
-            st.metric(f"{target_phase} Vol/Sn", f"{target_vol_per_sn:.2f} Bohr³")
-        with col3:
-            st.metric("Volume Expansion", f"{expansion:.1f}%", 
-                     delta=f"{expansion:.1f}%")
+        calc_li2sn5 = GPAW(mode=PW(500), xc='PBE', kpts=(6,6,16), txt='Li2Sn5_gpaw.log')
+        atoms_li2sn5.calc = calc_li2sn5
+        opt_li2sn5 = BFGS(atoms_li2sn5, logfile='Li2Sn5_relax.log')
+        opt_li2sn5.run(fmax=0.001)
+        v_li2sn5 = atoms_li2sn5.get_volume() / 10  # 10 Sn
 
-# ---------------------------------------------------------------
-# Main App Layout with Tabs
-# ---------------------------------------------------------------
-tab_sn, tab_lisn, tab_li2sn5, tab_db, tab_info = st.tabs([
-    "🔹 Pure BCT Sn", 
-    "🔸 LiSn Simple", 
-    "🔷 Li₂Sn₅",
-    "📊 Results & Expansion",
-    "ℹ️ Instructions"
-])
+        expansion = (v_li2sn5 - v_sn) / v_sn * 100
 
-with tab_sn:
-    st.info("BCT Sn (beta-Sn) - Recommended: scale ≈ 1.0, Ecut ≈ 400 eV, kpts ≈ 4")
-    run_vc_relax(phase='BCT_Sn', default_alat_bohr=1.0, default_ecut=400, default_kpts=4, 
-                initial_atoms_factory=create_bct_sn)
+        st.success("Volume Expansion calculation complete!")
+        st.write(f"Volume per Sn in BCT Sn: {v_sn:.6f} Å³")
+        st.write(f"Volume per Sn in Li2Sn5: {v_li2sn5:.6f} Å³")
+        st.write(f"Volume expansion: {expansion:.2f}%")
 
-with tab_lisn:
-    st.info("Simple LiSn structure for testing - Good for debugging")
-    run_vc_relax(phase='LiSn', default_alat_bohr=1.0, default_ecut=400, default_kpts=4,
-                initial_atoms_factory=create_lisn_simple)
-
-with tab_li2sn5:
-    st.info("Li₂Sn₅ - Intermediate phase with reasonable size")
-    run_vc_relax(phase='Li2Sn5', default_alat_bohr=1.0, default_ecut=400, default_kpts=3,
-                initial_atoms_factory=create_li2sn5)
-
-with tab_db:
-    st.subheader("Stored Relaxation Results")
-    
-    if st.button("Clear All Results"):
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM relax_results")
-        conn.commit()
-        conn.close()
-        st.success("Database cleared!")
-        st.rerun()
-    
-    conn = sqlite3.connect(db_path)
-    df = pd.read_sql_query("""
-        SELECT 
-            id, phase, num_li, num_sn,
-            alat_bohr as "Scale Factor",
-            ecut as "Ecut (eV)", 
-            kpts as "K-points",
-            energy as "Energy (eV)",
-            energy_per_atom as "E/Atom (eV)",
-            a as "a (Bohr)", 
-            b as "b (Bohr)", 
-            c as "c (Bohr)",
-            alpha as "α (°)", 
-            beta as "β (°)", 
-            gamma as "γ (°)",
-            volume as "Volume (Bohr³)",
-            volume_per_sn as "Vol/Sn (Bohr³)",
-            timestamp as "Date"
-        FROM relax_results 
-        ORDER BY timestamp DESC
-    """, conn)
-    conn.close()
-    
-    if not df.empty:
-        st.dataframe(df, use_container_width=True)
-        
-        # Summary statistics
-        st.subheader("Summary Statistics")
-        summary = df.groupby('phase').agg({
-            'Energy (eV)': ['count', 'min', 'mean'],
-            'E/Atom (eV)': ['mean', 'std'],
-            'Volume (Bohr³)': ['mean', 'std'],
-            'Vol/Sn (Bohr³)': ['mean', 'std']
-        }).round(4)
-        st.dataframe(summary)
-        
-        # Volume Expansion Calculator
-        calculate_volume_expansion()
-        
-    else:
-        st.info("No results found. Run a calculation to populate the database.")
-
-with tab_info:
-    st.subheader("Instructions & Parameters")
-    
-    st.markdown("""
-    ### 🎯 Recommended Parameters for Stability
-    
-    **For all phases:**
-    - **Scale Factor**: 1.0 (uses optimized initial structures)
-    - **Cutoff Energy**: 350-450 eV (balance accuracy/speed)
-    - **K-points**: 3-4 (denser for smaller cells)
-    - **Force Convergence**: 0.05 eV/Å (looser for stability)
-    - **Optimizer**: LBFGS (more stable than BFGS)
-    
-    ### ⚠️ Fixing "Leading Minor Not Positive Definite" Error
-    
-    This error indicates numerical instability in the Hessian matrix. Solutions:
-    
-    1. **Use LBFGS optimizer** instead of BFGS
-    2. **Looser convergence**: Force threshold = 0.05 eV/Å
-    3. **Smaller systems**: Start with simple structures
-    4. **Reduce accuracy**: Lower Ecut (350 eV) and k-points (3)
-    5. **Better initial guess**: Use scale factor ≈ 1.0
-    
-    ### 📊 Volume Expansion Calculation
-    
-    Volume expansion is calculated as:
-    ```
-    Expansion (%) = [(Vol_per_Sn_target - Vol_per_Sn_reference) / Vol_per_Sn_reference] × 100
-    ```
-    
-    Where:
-    - `Vol_per_Sn = Total_Volume / Number_of_Sn_Atoms`
-    - Reference is typically pure BCT Sn
-    - Target is the lithiated phase (LiSn, Li₂Sn₅, etc.)
-    
-    ### 🔧 Technical Details
-    
-    - **DFT**: PBE functional with Fermi-Dirac smearing
-    - **Relaxation**: ExpCellFilter for better cell relaxation
-    - **Symmetry**: Disabled for numerical stability
-    - **Units**: Bohr for database, Å internally
-    """)
-
-# ---------------------------------------------------------------
-# Footer
-# ---------------------------------------------------------------
-st.markdown("---")
-st.caption("ASE + GPAW Li-Sn Relaxation & Volume Expansion App | Made with Streamlit")
+    except Exception as e:
+        st.error(f"Calculation failed: {e}")

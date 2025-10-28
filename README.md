@@ -91,6 +91,6 @@ DFT Computation
 
 Structural Optimization
 
-[![atomisticmechanics](https://img.shields.io/badge/vcrelaxlisn-streamlit-red)](https://structural-optimization-lithium-tin.streamlit.app/)
+[![atomisticmechanics](https://img.shields.io/badge/vcrelaxlisn-streamlit-red)](https://structural-optimization-lithium-tin.streamlit.app/)  (This app is dependent on Quantum Espresso, and runs only in local computer)
 
 

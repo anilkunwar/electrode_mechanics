@@ -1,88 +1,88 @@
 import numpy as np
-from pyscf.pbc import gto, dft
-from pyscf.pbc.tools import lattice
+from ase import Atoms
+from ase.optimize import BFGS
+from ase.spacegroup import crystal
+from ase.constraints import ExpCellFilter
+from ase.units import GPa
+from ase.eos import EquationOfState
+from gpaw import GPAW, PW
 import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit
 
-# Define the Birch-Murnaghan equation of state
-def birch_murnaghan(V, E0, V0, B0, Bp):
-    eta = (V0 / V)**(2/3)
-    return E0 + (9 * V0 * B0 / 16) * (
-        (eta - 1)**3 * Bp + (eta - 1)**2 * (6 - 4 * eta)
+# Function to compute energy at fixed volume (with ionic relaxation)
+def get_energy_at_volume(atoms_template, volume, ecut=500, kpts=(8,8,12), xc='PBE'):
+    # Scale cell to target volume while preserving shape ratios
+    cell = atoms_template.get_cell()
+    current_volume = atoms_template.get_volume()
+    scale = (volume / current_volume) ** (1.0 / 3.0)
+    new_cell = cell * scale
+    atoms = atoms_template.copy()
+    atoms.set_cell(new_cell, scale_atoms=True)
+    
+    # Set GPAW calculator
+    calc = GPAW(
+        mode=PW(ecut),
+        xc=xc,
+        kpts=kpts,
+        txt='gpaw.log',
+        convergence={'energy': 1e-5}
     )
-
-# Example: Compute E(V) curve for BCT Sn (beta-Sn, tetragonal)
-# Lattice parameters: a = 5.83 Å, c = 3.18 Å (initial guess)
-# Spacegroup 141 (I41/amd), but for simplicity, define cell manually
-
-# Define the cell (tetragonal, 4 Sn atoms)
-atom = 'Sn 0 0 0; Sn 0.5 0.5 0.5; Sn 0.0 0.5 0.25; Sn 0.5 0.0 0.75'  # Positions for BCT Sn
-a_init = 5.83
-c_init = 3.18
-cell_init = np.array([
-    [a_init, 0, 0],
-    [0, a_init, 0],
-    [0, 0, c_init]
-])
-
-# Volume scales (e.g., 90% to 110% of initial volume)
-v_init = np.linalg.det(cell_init)  # Initial volume
-scale_factors = np.linspace(0.9, 1.1, 11)  # 11 points from 0.9 to 1.1
-volumes = v_init * scale_factors
-energies = []
-
-# DFT settings: Use PBE functional, small basis for demo (in practice, use better basis/kpoints)
-basis = 'sto-3g'  # Minimal basis for speed; use def2-svp or better in production
-kpts = [2, 2, 3]  # Small k-grid for demo; increase for accuracy
-
-for scale in scale_factors:
-    # Scale the cell isotropically (for tetragonal, scale a and c proportionally to keep c/a ratio)
-    ratio = c_init / a_init
-    a_scaled = a_init * scale**(1/3)
-    c_scaled = a_scaled * ratio  # Preserve aspect ratio for simplicity
-    cell_scaled = np.array([
-        [a_scaled, 0, 0],
-        [0, a_scaled, 0],
-        [0, 0, c_scaled]
-    ])
+    atoms.calc = calc
     
-    # Build the cell
-    cell = gto.Cell()
-    cell.atom = atom
-    cell.a = cell_scaled
-    cell.basis = basis
-    cell.unit = 'A'
-    cell.build()
+    # Relax ionic positions at fixed cell
+    opt = BFGS(atoms, logfile='relax.log')
+    opt.run(fmax=0.01)  # Loose convergence for speed; tighten for accuracy
     
-    # DFT calculation (relax positions at fixed volume? For full vc-relax, but here fixed cell)
-    # For E(V), often relax ions at each V
-    mf = dft.RKS(cell)
-    mf.xc = 'pbe'
-    mf.kpts = cell.make_kpts(kpts)
-    mf.kernel()  # Compute energy
+    return atoms.get_potential_energy()
+
+# Main script for E(V) curve and fit
+def compute_eos(structure, volumes_rel=np.linspace(0.9, 1.1, 11), ecut=500, kpts=(8,8,12)):
+    if structure == 'Sn (BCT)':
+        a = 5.83
+        c = 3.18
+        atoms_template = crystal('Sn', basis=[(0,0,0)], spacegroup=141, cellpar=[a, a, c, 90, 90, 90])
+        num_sn = len(atoms_template)  # 4
+    elif structure == 'Li2Sn5':
+        a = 10.274
+        c = 3.125
+        atoms_template = crystal(
+            symbols=['Sn', 'Li', 'Sn'],
+            basis=[(0, 0.5, 0), (0.16, 0.66, 0), (0.295, 0.432, 0)],
+            spacegroup=127,
+            cellpar=[a, a, c, 90, 90, 90]
+        )
+        num_sn = atoms_template.get_chemical_symbols().count('Sn')  # 10
+    else:
+        raise ValueError("Unsupported structure")
+
+    v0 = atoms_template.get_volume()
+    volumes = v0 * volumes_rel
+    energies = []
     
-    energy = mf.e_tot  # Total energy per unit cell
-    energies.append(energy)
+    for v in volumes:
+        e = get_energy_at_volume(atoms_template, v, ecut=ecut, kpts=kpts)
+        energies.append(e)
+    
+    # Fit to EquationOfState (Birch-Murnaghan by default)
+    eos = EquationOfState(volumes, energies)
+    v_fit, e_fit, B_fit, Bp_fit = eos.fit()
+    
+    # B in eV/Å³; convert to GPa
+    B_gpa = B_fit / GPa
+    
+    print(f"Equilibrium volume V0: {v_fit:.4f} Å³ (unit cell)")
+    print(f"Volume per Sn: {v_fit / num_sn:.4f} Å³")
+    print(f"Bulk modulus B: {B_gpa:.2f} GPa")
+    
+    # Plot
+    eos.plot()
+    plt.show()
+    
+    return v_fit / num_sn  # Return volume per Sn
 
-# Normalize energies (subtract min for fitting)
-energies = np.array(energies)
-energies -= np.min(energies)
+# Compute for BCT Sn and Li2Sn5
+v_sn = compute_eos('Sn (BCT)')
+v_li2sn5 = compute_eos('Li2Sn5')
 
-# Fit to Birch-Murnaghan EOS
-popt, pcov = curve_fit(birch_murnaghan, volumes, energies, p0=[0, v_init, 100, 4])  # Initial guesses: E0=0, V0=v_init, B0=100 GPa, Bp=4
-E0, V0, B0, Bp = popt
-
-print(f"Equilibrium volume V0: {V0:.4f} Å³ (per unit cell)")
-print(f"Bulk modulus B0: {B0:.4f} (in atomic units; convert to GPa as needed)")
-
-# Plot E(V) curve
-plt.plot(volumes, energies, 'o', label='DFT points')
-v_fit = np.linspace(min(volumes), max(volumes), 100)
-plt.plot(v_fit, birch_murnaghan(v_fit, *popt), '-', label='Fit')
-plt.xlabel('Volume (Å³)')
-plt.ylabel('Relative Energy (Ha)')
-plt.legend()
-plt.show()
-
-# For volume expansion: Repeat for Li2Sn5, normalize per Sn atom, compute relative change
-# (Similar setup, but with Li2Sn5 structure: spacegroup 127, etc.)
+# Volume expansion
+expansion = (v_li2sn5 - v_sn) / v_sn * 100
+print(f"Volume expansion: {expansion:.2f}%")

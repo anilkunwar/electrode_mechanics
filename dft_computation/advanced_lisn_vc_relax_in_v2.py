@@ -1,7 +1,14 @@
 import streamlit as st
 from ase import Atoms
 from ase.optimize import BFGS
-from ase.constraints import UnitCellFilter
+##########################################
+# ase.constratints is replaced by ase.filter
+#from ase.constraints import UnitCellFilter
+try:
+    from ase.filters import UnitCellFilter
+except ImportError:
+    from ase.constraints import UnitCellFilter
+#######################333
 from gpaw import GPAW, PW
 import sqlite3
 import os

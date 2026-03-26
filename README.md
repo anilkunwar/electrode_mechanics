@@ -93,9 +93,9 @@ Structural Optimization
 
 [![atomisticmechanics](https://img.shields.io/badge/vcrelaxlisnqe-streamlit-red)](https://structural-optimization-lithium-tin.streamlit.app/)  (This app is dependent on Quantum Espresso, and runs only in local computer)
 
-[![atomisticmechanics](https://img.shields.io/badge/vcrelaxlisngpaw-streamlit-red)](https://structural-optimization-lithium-tin2.streamlit.app/) (runs in cloud environment, ASE uses GPAW calculator)
+[![atomisticmechanics](https://img.shields.io/badge/vcrelaxlisngpaw-streamlit-red)](https://structural-optimization-lithium-tin2.streamlit.app/) (runs in cloud environment, ASE uses GPAW calculator, BFGS optimizes only atomic positions inside a fixed cell )
 
-[![atomisticmechanics](https://img.shields.io/badge/vcrelaxlisngpaw2-streamlit-red)](https://structural-optimization-lithium-tin3.streamlit.app/) (runs in cloud environment, ASE uses GPAW calculator)
+[![atomisticmechanics](https://img.shields.io/badge/vcrelaxlisngpaw2-streamlit-red)](https://structural-optimization-lithium-tin3.streamlit.app/) (runs in cloud environment, ASE uses GPAW calculator, UnitCellFilter allows the unit cell vectors to change during optimization )
 
 Volume Expansion During Lithiation
 

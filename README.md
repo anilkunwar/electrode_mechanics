@@ -97,13 +97,16 @@ Structural Optimization
 
 [![atomisticmechanics](https://img.shields.io/badge/vcrelaxlisngpaw2-streamlit-red)](https://structural-optimization-lithium-tin3.streamlit.app/) (runs in cloud environment, ASE uses GPAW calculator, UnitCellFilter allows the unit cell vectors to change during optimization, data storage in sqlite db )
 
-Volume Expansion During Lithiation
+Volume Expansion During Lithiation (vc-relaxation method for speed, and EOS mapping method for accuracy)
 
 
-[![atomisticmechanics](https://img.shields.io/badge/deltavolumebasic-streamlit-red)](https://volume-expansion-lithium-tin.streamlit.app/) (runs in cloud environment, ASE uses GPAW calculator, uses BGFS for optimization in the fixed cell)
+[![atomisticmechanics](https://img.shields.io/badge/deltavolumebasic-streamlit-red)](https://volume-expansion-lithium-tin.streamlit.app/) (vc-relaxation method, runs in cloud environment, ASE uses GPAW calculator, uses BGFS for optimization in the fixed cell)
 
-[![atomisticmechanics](https://img.shields.io/badge/deltavolumer1-streamlit-red)](https://volume-expansion-lithium-tin2.streamlit.app/) (runs in cloud environment, ASE uses GPAW calculator, uses LBGFS for speedy optimization in the fixed cell)
+[![atomisticmechanics](https://img.shields.io/badge/deltavolumer1-streamlit-red)](https://volume-expansion-lithium-tin2.streamlit.app/) (vc-relaxation method, runs in cloud environment, ASE uses GPAW calculator, uses LBGFS for speedy optimization in the fixed cell)
 
-[![atomisticmechanics](https://img.shields.io/badge/deltavolumer2-streamlit-red)](https://volume-expansion-lithium-tin3.streamlit.app/)  (only Energy minimization)
+[![atomisticmechanics](https://img.shields.io/badge/deltavolumer2-streamlit-red)](https://volume-expansion-lithium-tin3.streamlit.app/)  (athermal EOS mapping method, only Energy minimization)
 
-[![atomisticmechanics](https://img.shields.io/badge/deltavolumer4-streamlit-red)](https://volume-expansion-lithium-tin4.streamlit.app/) (runs in cloud environment, ASE uses GPAW calculator, uses LBGFS and modernized ExpCellFilter for speedy optimization )
+[![atomisticmechanics](https://img.shields.io/badge/deltavolumer4-streamlit-red)](https://volume-expansion-lithium-tin4.streamlit.app/) (vc-relaxation method, runs in cloud environment, ASE uses GPAW calculator, uses LBGFS and modernized ExpCellFilter for speedy optimization )
+
+
+[![atomisticmechanics](https://img.shields.io/badge/deltavolumer5-streamlit-red)](https://volume-expansion-athermal-eosmapping5.streamlit.app/ )  (athermal EOS mapping method,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures)

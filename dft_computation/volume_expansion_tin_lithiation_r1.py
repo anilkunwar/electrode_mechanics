@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from ase import Atoms
 from ase.optimize import BFGS, LBFGS
 from ase.spacegroup import crystal
-from ase.filters import FrechetCellFilter          # modern, recommended filter
+from ase.filters import FrechetCellFilter
 from gpaw import GPAW, PW
 import os
 
@@ -91,7 +91,11 @@ elif structure == 'Li2Sn5':
 # Initial parameters with speed-optimized defaults
 if structure == 'Li (BCC)':
     a = st.number_input("Initial a (Å)", min_value=2.0, max_value=10.0, value=default_a)
-    atoms = crystal('Li', basis=[(0,0,0)], spacegroup=229, cellpar=[a, a, a, 90, 90, 90])
+    # Use conventional 2-atom BCC cell to avoid FrechetCellFilter issues
+    atoms = Atoms('Li2',
+                  positions=[[0,0,0], [0.5,0.5,0.5]],
+                  cell=[a, a, a],
+                  pbc=True)
     is_cubic = True
 elif structure == 'Sn (diamond cubic)':
     a = st.number_input("Initial a (Å)", min_value=4.0, max_value=10.0, value=default_a)
@@ -171,7 +175,7 @@ st.sidebar.write(f"Force convergence: {forc_conv_thr:.1e} eV/Å")
 st.sidebar.write(f"Energy convergence: {etot_conv_thr:.1e} eV/atom")
 
 # ============================================================================
-#  Core relaxation function (using FrechetCellFilter)
+#  Core relaxation function (using FrechetCellFilter with trajectory)
 # ============================================================================
 def create_fast_calculator(atoms, structure_name, ecut, ka_kb, kc):
     """Create GPAW calculator with speed/accuracy trade-offs."""
@@ -204,7 +208,7 @@ def perform_vc_relax(atoms, ecut, kpts, forc_conv_thr, max_steps=100,
                      optimizer='LBFGS', structure_name="unknown"):
     """
     Perform variable-cell relaxation using FrechetCellFilter.
-    Returns a dictionary with results.
+    Returns a dictionary with results and trajectory data.
     """
     try:
         # Attach calculator
@@ -213,8 +217,8 @@ def perform_vc_relax(atoms, ecut, kpts, forc_conv_thr, max_steps=100,
 
         st.write(f"Starting vc-relax for {structure_name} with FrechetCellFilter...")
 
-        # Key improvement: use FrechetCellFilter (modern, robust)
-        fcf = FrechetCellFilter(atoms)
+        # Use FrechetCellFilter for full cell relaxation
+        fcf = FrechetCellFilter(atoms, scalar_pressure=0.0)  # target zero pressure
 
         # Choose optimizer
         if optimizer.upper() == 'LBFGS':
@@ -222,10 +226,27 @@ def perform_vc_relax(atoms, ecut, kpts, forc_conv_thr, max_steps=100,
         else:
             opt = BFGS(fcf, logfile=f'{structure_name}_relax.log')
 
+        # Store trajectory for plotting
+        energy_steps = []
+        force_steps = []
+
+        def update_trajectory():
+            """Called after each optimization step."""
+            try:
+                energy = atoms.get_potential_energy()
+                forces = atoms.get_forces()
+                max_force = np.max(np.abs(forces))
+                energy_steps.append(energy)
+                force_steps.append(max_force)
+            except Exception:
+                pass
+
+        opt.attach(update_trajectory, interval=1)
+
         # Run relaxation
         opt.run(fmax=forc_conv_thr, steps=max_steps)
 
-        # Gather results
+        # Gather final results
         final_cell = atoms.get_cell()
         lattice = final_cell.lengths()
         volume = atoms.get_volume()
@@ -248,6 +269,8 @@ def perform_vc_relax(atoms, ecut, kpts, forc_conv_thr, max_steps=100,
             'hydrostatic_pressure': hydrostatic_pressure,
             'n_sn': n_sn,
             'volume_per_sn': volume / n_sn if n_sn > 0 else None,
+            'energy_steps': energy_steps,
+            'force_steps': force_steps,
         }
     except Exception as e:
         st.error(f"vc-relax failed for {structure_name}: {e}")
@@ -308,7 +331,57 @@ if run_calc:
             # --- Visualizations ---
             st.subheader("📊 Visualization")
 
-            # 1. Radar chart: convergence quality
+            # 1. Energy vs Step line plot
+            if result['energy_steps']:
+                fig_energy = go.Figure()
+                fig_energy.add_trace(go.Scatter(
+                    x=list(range(1, len(result['energy_steps'])+1)),
+                    y=result['energy_steps'],
+                    mode='lines+markers',
+                    name='Total Energy'
+                ))
+                fig_energy.update_layout(
+                    title="Energy vs Optimization Step",
+                    xaxis_title="Step Number",
+                    yaxis_title="Total Energy (eV)"
+                )
+                st.plotly_chart(fig_energy, use_container_width=True)
+
+            # 2. Force vs Step line plot
+            if result['force_steps']:
+                fig_force = go.Figure()
+                fig_force.add_trace(go.Scatter(
+                    x=list(range(1, len(result['force_steps'])+1)),
+                    y=result['force_steps'],
+                    mode='lines+markers',
+                    name='Max Force'
+                ))
+                fig_force.update_layout(
+                    title="Max Force vs Optimization Step",
+                    xaxis_title="Step Number",
+                    yaxis_title="Max Force (eV/Å)"
+                )
+                st.plotly_chart(fig_force, use_container_width=True)
+
+            # 3. Stress tensor bar chart
+            stress_components = ['σ_xx', 'σ_yy', 'σ_zz', 'σ_yz', 'σ_xz', 'σ_xy']
+            stress_values = result['stress']  # in eV/Å³
+            stress_gpa = stress_values * 160.21766208  # convert to GPa
+
+            fig_stress = go.Figure()
+            fig_stress.add_trace(go.Bar(
+                x=stress_components,
+                y=stress_gpa,
+                text=[f"{v:.2f}" for v in stress_gpa],
+                textposition='auto'
+            ))
+            fig_stress.update_layout(
+                title="Stress Tensor Components (GPa)",
+                yaxis_title="Stress (GPa)"
+            )
+            st.plotly_chart(fig_stress, use_container_width=True)
+
+            # 4. Radar chart: convergence quality
             categories = ['ECut (norm)', 'K-point density (norm)', 'Force conv.', 'Energy conv.', '1/Max force', '1/Residual stress']
             # Normalize values to [0,1] for radar (higher is better)
             ecut_norm = min(1.0, ecut / 1000.0)                     # 1000 eV → 1

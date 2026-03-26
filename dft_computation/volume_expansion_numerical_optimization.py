@@ -3,7 +3,11 @@ import numpy as np
 from ase import Atoms
 from ase.optimize import BFGS, LBFGS
 from ase.spacegroup import crystal
-from ase.constraints import ExpCellFilter
+#from ase.constraints import ExpCellFilter
+try:
+    from ase.filters import ExpCellFilter
+except ImportError:
+    from ase.constraints import ExpCellFilter
 from gpaw import GPAW, PW
 import os
 

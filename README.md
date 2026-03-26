@@ -87,7 +87,7 @@ Three Models
 [![meaningtowords](https://img.shields.io/badge/phaseeigenstrain-streamlit-red)](https://compute-eigenstrain.streamlit.app/)
 
 
-DFT Computation
+# DFT Computation
 
 Structural Optimization
 

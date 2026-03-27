@@ -2801,4 +2801,110 @@ with tab5:
                 'parameters': params,
                 'computation_times': {k: format_time(v) for k, v in st.session_state.computation_times.items()},
                 'timestamp': datetime.now().isoformat(),
-                'gpa
+                'gpaw_available': GPAW_AVAILABLE,
+                'gpaw_version': GPAW_VERSION,
+                'numba_available': NUMBA_AVAILABLE,
+                'sklearn_available': SKLEARN_AVAILABLE,
+                'results_summary': {
+                    'formation_energy': thermo['formation_per_atom'] if thermo else None,
+                    'volume_expansion_pct': st.session_state.expansion_pct,
+                    'bulk_modulus_sn': sn_eos['B0_GPa'] if sn_eos else None,
+                    'bulk_modulus_li2sn5': li_eos['B0_GPa'] if li_eos else None,
+                    'c11_li2sn5': li_el['c11_gpa'] if li_el else None,
+                    'c33_li2sn5': li_el['c33_gpa'] if li_el else None,
+                    'anisotropy_ratio': li_el['anisotropy_ratio'] if li_el else None,
+                    'fracture_risk': fracture['risk_level'] if fracture else None
+                }
+            }
+            json_str = json.dumps(safe_json_serialize(metadata), indent=2)
+            st.download_button(
+                label="📥 Download Metadata (JSON)",
+                data=json_str,
+                file_name="sn_li2sn5_metadata.json",
+                mime="application/json",
+                use_container_width=True
+            )
+        
+        # Computation time summary
+        if st.session_state.computation_times:
+            st.subheader("⏱️ Computation Time Summary")
+            time_data = []
+            for phase, elapsed in st.session_state.computation_times.items():
+                phase_name = phase.replace('phase', 'Phase ').replace('_', ' ').title()
+                time_data.append({'Phase': phase_name, 'Time': format_time(elapsed)})
+            time_df = pd.DataFrame(time_data)
+            st.dataframe(time_df, use_container_width=True, hide_index=True)
+            total_time = sum(st.session_state.computation_times.values())
+            st.metric("Total Computation Time", format_time(total_time))
+
+# ============================================================================
+# FOOTER & HELP SECTION
+# ============================================================================
+st.markdown("---")
+
+# Expandable help/FAQ section
+with st.expander("❓ Help & Frequently Asked Questions", expanded=False):
+    st.markdown("""
+    ### 🔧 Troubleshooting
+    
+    **Q: GPAW import failed - what should I do?**
+    A: The app runs in demo mode with precomputed reference values. For full DFT calculations:
+    ```bash
+    # Install GPAW (may require compilation)
+    pip install gpaw
+    
+    # Or use conda for pre-built binaries
+    conda install -c conda-forge gpaw
+    ```
+    
+    **Q: Calculations are taking too long**
+    A: Try these optimizations:
+    - Use "Fast Testing" mode for initial exploration
+    - Reduce `n_vol` (E-V points) and `n_strain` (elasticity points) in sidebar
+    - Enable GP surrogate to reduce DFT calls by ~50%
+    - Ensure parallel computation is enabled with appropriate worker count
+    
+    **Q: Memory errors during computation**
+    A: Reduce problem size:
+    - Lower plane-wave cutoff (`ecut`) in Fast mode
+    - Use coarser k-point grids
+    - Process phases independently rather than all at once
+    
+    **Q: How do I interpret the results?**
+    A: Key guidelines:
+    - ΔE_f < 0: Li₂Sn₅ thermodynamically stable vs. elemental references
+    - Expansion ~22%: Consistent with experimental observations for β-Sn → Li₂Sn₅
+    - AR < 1: c-axis softer than basal plane → risk of interlayer delamination
+    - Risk score ≥ 6: Consider nanostructuring or composite electrode design
+    
+    ### 📚 References
+    
+    - Birch, F. (1947). Finite elastic strain of cubic crystals. *Phys. Rev.* **71**, 809.
+    - Enkovaara, J. et al. (2010). Electronic structure calculations with GPAW. *J. Phys.: Condens. Matter* **22**, 253202.
+    - Hansen, W. & Chang, Y.A. (1969). Crystal structure of Li₂Sn₅. *Acta Crystallogr. B* **25**, 1031.
+    - Mouhat, F. & Coudert, F.-X. (2014). Elastic stability conditions. *Phys. Rev. B* **90**, 224104.
+    
+    ### 🔗 Resources
+    
+    - [GPAW Documentation](https://wiki.fysik.dtu.dk/gpaw/)
+    - [ASE Documentation](https://wiki.fysik.dtu.dk/ase/)
+    - [Materials Project: Li-Sn Phase Diagram](https://materialsproject.org/)
+    """)
+
+# App footer with version info
+st.markdown("""
+<div style='text-align: center; color: #7f8c8d; font-size: 0.85rem; padding: 1rem 0;'>
+    <strong>Sn→Li₂Sn₅ Lithiation Mechanics Analyzer</strong><br>
+    DFT Backend: GPAW/PBE | Framework: ASE + Streamlit<br>
+    Methodology: Birch-Murnaghan EOS | Finite-Strain Elasticity | Fracture Mechanics<br>
+    <em>Version 1.0.0 | CPU-Parallelized | Demo Mode Available</em>
+</div>
+""", unsafe_allow_html=True)
+
+# Optional: Display last error if any (for debugging)
+if st.session_state.last_error and st.session_state.enable_detailed_logging:
+    with st.expander("🐛 Last Error Details (Debug)", expanded=False):
+        st.code(st.session_state.last_error, language="text")
+        if st.button("Clear Error"):
+            st.session_state.last_error = None
+            st.rerun()

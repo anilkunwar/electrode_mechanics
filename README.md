@@ -117,9 +117,11 @@ Volume Expansion During Lithiation (vc-relaxation method for speed, and EOS mapp
 
 [![atomisticmechanics](https://img.shields.io/badge/deltavolumer8-streamlit-red)](https://volume-expansion-athermal-eosmapping8.streamlit.app/ )  (athermal EOS mapping method,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures, fast)
 
-[![atomisticmechanics](https://img.shields.io/badge/deltavolumer9-streamlit-red)](https://volume-expansion-athermal-eosmapping9.streamlit.app/ )  (athermal EOS mapping method,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures, fast and solutions available)
+[![atomisticmechanics](https://img.shields.io/badge/deltavolumer9-streamlit-red)](https://volume-expansion-athermal-eosmapping9.streamlit.app/ )  (athermal EOS mapping method,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures,DEMO mode, fast and solutions available)
 
 [![atomisticmechanics](https://img.shields.io/badge/deltavolumer10-streamlit-red)](https://volume-expansion-athermal-eosmapping10.streamlit.app/ )  (athermal EOS mapping method,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures, fast and robust )
+
+[![atomisticmechanics](https://img.shields.io/badge/deltavolumer11-streamlit-red)](https://volume-expansion-athermal-eosmapping11.streamlit.app/ )  (athermal EOS mapping method,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures, DFT calculation with GPAW, fast and robust )
 
 
 

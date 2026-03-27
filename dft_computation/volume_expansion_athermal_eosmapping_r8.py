@@ -597,10 +597,20 @@ def log_message(message, level="info"):
             st.success(log_entry)
         else:
             st.info(log_entry)
-    
-    # Could also write to file if needed
-    # with open("app.log", "a") as f:
-    #     f.write(log_entry + "\n")
+
+def validate_eos_results(results, phase_name):
+    """Check if EOS results contain valid data for plotting."""
+    if not results:
+        return False, f"{phase_name}: No results object"
+    vols = results.get('volumes')
+    energies = results.get('energies')
+    if vols is None or len(vols) == 0:
+        return False, f"{phase_name}: Empty volumes array"
+    if energies is None or len(energies) == 0:
+        return False, f"{phase_name}: Empty energies array"
+    if np.any(np.isnan(vols)) or np.any(np.isnan(energies)):
+        return False, f"{phase_name}: Contains NaN values"
+    return True, "OK"
 
 def quadratic_strain(eps, A, B, C):
     """
@@ -1645,44 +1655,64 @@ def plot_eos_scatter_with_fit(eos_results, phase_name, ax, show_residuals=False)
     show_residuals : bool, optional
         Whether to show residual plot below main plot
     """
-    vols = eos_results["volumes"]
-    energies = eos_results["energies"]
-    v0 = eos_results["v0_fit"]
-    e0 = eos_results["e0_fit"]
-    B0 = eos_results["B0_GPa"]
-    Bp = eos_results["Bp"]
+    # Safe extraction with defaults
+    vols = eos_results.get("volumes") if eos_results else None
+    energies = eos_results.get("energies") if eos_results else None
     
-    # Generate smooth EOS curve for visualization
-    v_smooth = np.linspace(vols.min()*0.98, vols.max()*1.02, 200)
-    e_smooth = [birch_murnaghan_eos(v, e0, v0, B0*GPa if B0 else 50*GPa, Bp if Bp else 4.0) for v in v_smooth]
+    # 🔧 Handle missing/empty data gracefully
+    if vols is None or energies is None or len(vols) == 0 or len(energies) == 0:
+        ax.text(0.5, 0.5, f'⚠️ No data\nfor {phase_name}', 
+               ha='center', va='center', fontsize=11, style='italic', color='gray')
+        ax.set_xlabel('Volume (Å³)', fontsize=10)
+        ax.set_ylabel('Energy (eV)', fontsize=10)
+        ax.set_title(f'{phase_name}: E-V Curve', fontsize=11, weight='bold', pad=10)
+        ax.grid(True, alpha=0.2, linestyle='--')
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        return
     
-    # Main plot: E vs V
+    v0 = eos_results.get("v0_fit")
+    e0 = eos_results.get("e0_fit")
+    B0 = eos_results.get("B0_GPa")
+    Bp = eos_results.get("Bp")
+    
+    # Safe min/max with fallback
+    v_min = np.min(vols) if len(vols) > 0 else 1.0
+    v_max = np.max(vols) if len(vols) > 0 else 2.0
+    
+    # Generate smooth EOS curve
+    v_smooth = np.linspace(v_min*0.98, v_max*1.02, 200)
+    
+    # Safe EOS evaluation
+    B0_val = (B0 * GPa) if B0 else 50*GPa
+    Bp_val = Bp if Bp else 4.0
+    e_smooth = [birch_murnaghan_eos(v, e0 or 0, v0 or v_min, B0_val, Bp_val) for v in v_smooth]
+    
+    # Main plot
     ax.scatter(vols, energies, c='#e74c3c', s=70, label='DFT Points', zorder=5, 
               edgecolors='white', linewidth=1.2, alpha=0.9)
     ax.plot(v_smooth, e_smooth, 'b-', linewidth=2.5, label='Birch-Murnaghan Fit', alpha=0.8)
-    ax.axvline(x=v0, color='green', linestyle='--', linewidth=1.5, alpha=0.7, 
-              label=f'V₀ = {v0:.2f} Å³')
     
-    # Labels and formatting
+    if v0:
+        ax.axvline(x=v0, color='green', linestyle='--', linewidth=1.5, alpha=0.7, 
+                  label=f'V₀ = {v0:.2f} Å³')
+    
     ax.set_xlabel('Volume (Å³)', fontsize=11)
     ax.set_ylabel('Energy (eV)', fontsize=11)
     ax.set_title(f'{phase_name}: E-V Curve & EOS Fit', fontsize=12, weight='bold', pad=10)
     ax.legend(fontsize=9, loc='best', framealpha=0.9)
     ax.grid(True, alpha=0.3, linestyle='--')
     
-    # Add equilibrium energy annotation
-    ax.annotate(f'E₀ = {e0:.3f} eV\nB₀ = {B0:.1f} GPa', 
-               xy=(v0, e0), xytext=(10, -30), textcoords='offset points',
-               bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5),
-               fontsize=9, arrowprops=dict(arrowstyle='->', color='gray'))
+    # Annotation if we have equilibrium values
+    if v0 and e0:
+        ax.annotate(f'E₀ = {e0:.3f} eV\nB₀ = {B0:.1f} GPa' if B0 else f'E₀ = {e0:.3f} eV', 
+                   xy=(v0, e0), xytext=(10, -30), textcoords='offset points',
+                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5),
+                   fontsize=9, arrowprops=dict(arrowstyle='->', color='gray'))
     
-    if show_residuals and len(vols) >= 4:
-        # Compute residuals for inset
-        e_fit = [birch_murnaghan_eos(v, e0, v0, B0*GPa if B0 else 50*GPa, Bp if Bp else 4.0) for v in vols]
+    if show_residuals and len(vols) >= 4 and e0 and B0:
+        e_fit = [birch_murnaghan_eos(v, e0, v0, B0*GPa, Bp_val) for v in vols]
         residuals = np.array(energies) - np.array(e_fit)
-        
-        # Could add inset here if needed
-        # For now, just log
         rmse = np.sqrt(np.mean(residuals**2))
         log_message(f"{phase_name} EOS fit RMSE: {rmse:.4f} eV", "info")
 
@@ -2170,13 +2200,26 @@ with tab2:
             st.session_state.b0_drop_pct = b0_drop_pct
             st.info(f"💡 Bulk modulus drops by {b0_drop_pct:.1f}% upon lithiation (material softening)")
         
-        # E-V curves side-by-side
+        # E-V curves side-by-side - 🔧 WITH DATA VALIDATION
         st.subheader("📈 Energy-Volume Curves & EOS Fits")
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
-        plot_eos_scatter_with_fit(sn_res, 'β-Sn (BCT)', ax1)
-        plot_eos_scatter_with_fit(li_res, 'Li₂Sn₅', ax2)
-        plt.tight_layout()
-        st.pyplot(fig)
+        
+        valid_sn, msg_sn = validate_eos_results(sn_res, "Sn")
+        valid_li, msg_li = validate_eos_results(li_res, "Li₂Sn₅")
+        
+        if valid_sn and valid_li:
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+            plot_eos_scatter_with_fit(sn_res, 'β-Sn (BCT)', ax1)
+            plot_eos_scatter_with_fit(li_res, 'Li₂Sn₅', ax2)
+            plt.tight_layout()
+            st.pyplot(fig)
+        else:
+            st.warning(f"⚠️ Plotting skipped: {msg_sn} | {msg_li}")
+            # Show placeholder plots
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+            plot_eos_scatter_with_fit(sn_res if valid_sn else {}, 'β-Sn (BCT)', ax1)
+            plot_eos_scatter_with_fit(li_res if valid_li else {}, 'Li₂Sn₅', ax2)
+            plt.tight_layout()
+            st.pyplot(fig)
         
         # Bulk modulus comparison
         st.subheader("📊 Bulk Modulus Comparison")

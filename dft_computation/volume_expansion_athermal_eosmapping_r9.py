@@ -11,6 +11,9 @@ Deploy to Streamlit Cloud: No GPU required, CPU-only parallelization
 Author: Your Name
 Date: 2024
 License: MIT
+
+FIX APPLIED: UnboundLocalError in compute_stress_distribution_3d resolved
+by defining theta_grid/phi_grid before conditional Numba branch.
 """
 
 # ============================================================================
@@ -1303,23 +1306,32 @@ def compute_stress_field_numba(c11, c33, n_theta=180, n_phi=90):
     return stress
 
 def compute_stress_distribution_3d(c11, c33, n_theta=180, n_phi=90):
-    """Compute 3D stress distribution with automatic Numba fallback."""
+    """Compute 3D stress distribution with automatic Numba fallback.
+    
+    🔧 FIXED: theta_grid/phi_grid now defined before conditional branch
+    to prevent UnboundLocalError when Numba path is used.
+    """
     log_message(f"Computing 3D stress field (C₁₁={c11:.1f}, C₃₃={c33:.1f} GPa)", "info")
     
+    # 🔧 FIX: Always create spherical coordinate grids FIRST
+    # These are needed for Cartesian conversion regardless of stress computation method
+    theta = np.linspace(0, 2*np.pi, n_theta)
+    phi = np.linspace(0, np.pi, n_phi)
+    theta_grid, phi_grid = np.meshgrid(theta, phi)
+    
+    # Compute stress magnitude using Numba if available, otherwise pure NumPy
     if NUMBA_AVAILABLE and use_numba:
         stress_magnitude = compute_stress_field_numba(c11, c33, n_theta, n_phi)
         log_message("Used Numba JIT acceleration for stress field", "info")
     else:
-        theta = np.linspace(0, 2*np.pi, n_theta)
-        phi = np.linspace(0, np.pi, n_phi)
-        theta_grid, phi_grid = np.meshgrid(theta, phi)
-        
+        # Pure NumPy fallback - direction cosines for transversely isotropic material
         lx = np.sin(phi_grid) * np.cos(theta_grid)
         ly = np.sin(phi_grid) * np.sin(theta_grid)
         lz = np.cos(phi_grid)
-        
         stress_magnitude = c11 * (lx**2 + ly**2) + c33 * lz**2
     
+    # Convert spherical stress field to Cartesian coordinates for 3D plotting
+    # Surface radius proportional to stress magnitude
     x = np.sin(phi_grid) * np.cos(theta_grid) * stress_magnitude
     y = np.sin(phi_grid) * np.sin(theta_grid) * stress_magnitude
     z = np.cos(phi_grid) * stress_magnitude
@@ -1885,6 +1897,8 @@ with tab4:
                 )
                 st.session_state.phase_results['phase4'] = fracture
                 
+                # 🔧 FIXED: This call now works because theta_grid/phi_grid are defined
+                # before the conditional branch in compute_stress_distribution_3d
                 stress_3d = compute_stress_distribution_3d(
                     c11=li_el['c11_gpa'],
                     c33=li_el['c33_gpa']
@@ -1971,7 +1985,7 @@ st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #7f8c8d; font-size: 0.85rem; padding: 1rem 0;'>
     <strong>Sn→Li₂Sn₅ Lithiation Mechanics Analyzer</strong><br>
-    Version 1.0.3 | Histogram Bug Fixed | All Plots Working
+    Version 1.0.3 | Histogram Bug Fixed | All Plots Working | UnboundLocalError Resolved
 </div>
 """, unsafe_allow_html=True)
 

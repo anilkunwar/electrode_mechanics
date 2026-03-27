@@ -40,6 +40,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 import multiprocessing as mp
 import time
 import json
+from pathlib import Path
 
 # Optional: GPAW (main DFT engine) - with comprehensive fallback
 try:
@@ -389,7 +390,9 @@ def init_session_state():
         # Performance metrics
         'computation_times': {},
         # Error tracking
-        'last_error': None
+        'last_error': None,
+        # App state
+        'app_initialized': True
     }
     
     for key, default_value in defaults.items():
@@ -406,6 +409,19 @@ st.sidebar.header("⚙️ Global DFT Settings")
 # Warning if GPAW not available
 if not GPAW_AVAILABLE:
     st.sidebar.warning("⚠️ **GPAW not installed**\n\nRunning in demo mode with precomputed reference values. Install GPAW for full DFT calculations:\n\n```bash\npip install gpaw\n```\n\nNote: GPAW may require compilation and additional system dependencies.")
+
+# Reset button for clearing all results
+if st.sidebar.button("🔄 Reset All Results", use_container_width=True):
+    for key in st.session_state.phase_results:
+        st.session_state.phase_results[key] = None
+    st.session_state.ref_energies = None
+    st.session_state.expansion_pct = None
+    st.session_state.b0_drop_pct = None
+    st.session_state.li2sn5_elastic = None
+    st.session_state.stress_3d = None
+    st.session_state.computation_times = {}
+    st.session_state.last_error = None
+    st.rerun()
 
 # Calculation mode selection with detailed descriptions
 calculation_mode = st.sidebar.selectbox(
@@ -629,57 +645,11 @@ def validate_eos_results(results, phase_name):
     return True, "OK"
 
 def quadratic_strain(eps, A, B, C):
-    """
-    Quadratic polynomial for elastic constant extraction.
-    
-    Energy vs strain relationship in harmonic regime:
-    E(ε) = A·ε² + B·ε + C
-    
-    The elastic constant is related to curvature: C_ii = 2A/V₀ × conversion_factor
-    
-    Parameters:
-    -----------
-    eps : float or array-like
-        Strain value(s)
-    A, B, C : float
-        Quadratic coefficients
-    
-    Returns:
-    --------
-    float or array-like
-        Energy value(s) at given strain(s)
-    """
+    """Quadratic polynomial for elastic constant extraction."""
     return A * np.asarray(eps)**2 + B * np.asarray(eps) + C
 
 def birch_murnaghan_eos(V, E0, V0, B0, Bp):
-    """
-    Third-order Birch-Murnaghan Equation of State.
-    
-    Describes energy as function of volume for isotropic compression/expansion:
-    
-    E(V) = E₀ + (9V₀B₀/16) × {
-        [(V₀/V)^(2/3) - 1]³ × B'₀ + 
-        [(V₀/V)^(2/3) - 1]² × [6 - 4(V₀/V)^(2/3)]
-    }
-    
-    Parameters:
-    -----------
-    V : float or array-like
-        Volume(s) in Å³
-    E0 : float
-        Equilibrium energy in eV
-    V0 : float
-        Equilibrium volume in Å³
-    B0 : float
-        Bulk modulus in eV/Å³ (will be converted to GPa)
-    Bp : float
-        Pressure derivative of bulk modulus (dimensionless)
-    
-    Returns:
-    --------
-    float or array-like
-        Energy value(s) at given volume(s) in eV
-    """
+    """Third-order Birch-Murnaghan Equation of State."""
     V = np.asarray(V)
     eta = (V0 / V)**(2/3)
     term1 = (eta - 1)**3 * Bp
@@ -687,28 +657,7 @@ def birch_murnaghan_eos(V, E0, V0, B0, Bp):
     return E0 + (9 * V0 * B0 / 16) * (term1 + term2)
 
 def create_calculator(ecut, xc='PBE', kpts=(4,4,4), txt=None, convergence=None, maxiter=200):
-    """
-    Create GPAW calculator with consistent, configurable settings.
-    
-    Parameters:
-    -----------
-    ecut : int
-        Plane-wave kinetic energy cutoff in eV
-    xc : str, optional (default='PBE')
-        Exchange-correlation functional
-    kpts : tuple, optional
-        Monkhorst-Pack k-point grid (nkx, nky, nkz)
-    txt : str or None, optional
-        Output log file path (None for silent)
-    convergence : dict, optional
-        Convergence criteria for SCF cycle
-    maxiter : int, optional (default=200)
-        Maximum SCF iterations
-    
-    Returns:
-    --------
-    GPAW calculator object (or dummy in demo mode)
-    """
+    """Create GPAW calculator with consistent, configurable settings."""
     if not GPAW_AVAILABLE:
         log_message("GPAW not available - using dummy calculator for demo", "warning")
         return DummyCalculator(ecut=ecut, xc=xc, kpts=kpts)
@@ -728,45 +677,24 @@ def create_calculator(ecut, xc='PBE', kpts=(4,4,4), txt=None, convergence=None, 
             convergence=convergence,
             maxiter=maxiter,
             occupations={'name': 'fermi-dirac', 'width': 0.1},
-            # Additional GPAW options for stability
-            eigensolver='dav',  # Davidson diagonalization (faster than RMM-DIIS for metals)
-            mixer={'name': 'PTB', 'weight': 0.1},  # Pulay mixer with damping
-            nbands='-20%'  # Slightly fewer bands for metals (occupied + some empty)
+            eigensolver='dav',
+            mixer={'name': 'PTB', 'weight': 0.1},
+            nbands='-20%'
         )
         log_message(f"Created GPAW calculator: ecut={ecut} eV, kpts={kpts}, xc={xc}", "info")
         return calc
     except Exception as e:
         log_message(f"Failed to create GPAW calculator: {e}", "error")
-        # Fallback to dummy
         return DummyCalculator(ecut=ecut, xc=xc, kpts=kpts)
 
 def relax_fixed_volume(atoms, fmax=0.05, max_steps=100):
-    """
-    Relax atomic positions at fixed cell volume using BFGS optimization.
-    
-    Parameters:
-    -----------
-    atoms : ase.Atoms object
-        Structure with calculator attached
-    fmax : float, optional (default=0.05)
-        Maximum force tolerance for convergence (eV/Å)
-    max_steps : int, optional (default=100)
-        Maximum optimization steps
-    
-    Returns:
-    --------
-    float
-        Final potential energy in eV
-    """
+    """Relax atomic positions at fixed cell volume using BFGS optimization."""
     if not GPAW_AVAILABLE:
-        # Demo mode: return energy directly (already "relaxed" in dummy)
-        # 🔧 CRITICAL FIX: Ensure calculator is attached
         if not hasattr(atoms, 'calc') or atoms.calc is None:
             atoms.calc = DummyCalculator(atoms=atoms)
         return atoms.get_potential_energy()
     
     try:
-        # BFGS optimization with force convergence
         opt = BFGS(atoms, logfile=None)
         converged = opt.run(fmax=fmax, steps=max_steps)
         
@@ -776,26 +704,23 @@ def relax_fixed_volume(atoms, fmax=0.05, max_steps=100):
         return atoms.get_potential_energy()
     except Exception as e:
         log_message(f"Relaxation failed: {e}", "error")
-        # Return last known energy or estimate
         if hasattr(atoms, 'get_potential_energy') and atoms.calc is not None:
             return atoms.get_potential_energy()
         return -100.0
 
-# 🔧 NEW: Demo mode precomputed results for immediate testing
 def get_demo_ev_results(structure_name, v0_init, n_points, volume_range):
     """Generate realistic demo E-V data without DFT calculations."""
-    # Reference values from literature
     demo_params = {
         'Sn (BCT)': {
-            'v0': 47.8,  # Å³ per 4 atoms
-            'e0': -12.608,  # eV per 4 atoms
-            'b0': 58.0,  # GPa
+            'v0': 47.8,
+            'e0': -12.608,
+            'b0': 58.0,
             'bp': 4.2
         },
         'Li2Sn5': {
-            'v0': 175.5,  # Å³ per 10 Sn atoms
-            'e0': -63.24,  # eV per cell
-            'b0': 42.0,  # GPa
+            'v0': 175.5,
+            'e0': -63.24,
+            'b0': 42.0,
             'bp': 4.5
         }
     }
@@ -805,16 +730,13 @@ def get_demo_ev_results(structure_name, v0_init, n_points, volume_range):
     
     params = demo_params[structure_name]
     
-    # Generate volume points
     scales = np.linspace(volume_range[0], volume_range[1], n_points)
     volumes = v0_init * scales
     
-    # Generate energies using Birch-Murnaghan EOS
-    b0_ev_a3 = params['b0'] / 160.217  # Convert GPa to eV/Å³
+    b0_ev_a3 = params['b0'] / 160.217
     energies = []
     for v in volumes:
         e = birch_murnaghan_eos(v, params['e0'], params['v0'], b0_ev_a3, params['bp'])
-        # Add small noise for realism
         e += np.random.normal(0, 0.001)
         energies.append(e)
     
@@ -842,12 +764,12 @@ def get_demo_elasticity_results(structure_name, v0):
     """Generate realistic demo elasticity data without DFT calculations."""
     demo_params = {
         'Sn': {
-            'c11': 72.0,  # GPa
-            'c33': 45.0,  # GPa
+            'c11': 72.0,
+            'c33': 45.0,
         },
         'Li2Sn5': {
-            'c11': 55.0,  # GPa
-            'c33': 28.0,  # GPa
+            'c11': 55.0,
+            'c33': 28.0,
         }
     }
     
@@ -857,7 +779,6 @@ def get_demo_elasticity_results(structure_name, v0):
     params = demo_params[structure_name]
     strains = np.linspace(-0.02, 0.02, 5)
     
-    # Generate strain-energy data
     conversion = 160.217
     a_coeff = params['c11'] * v0 / (2 * conversion)
     c_coeff = params['c33'] * v0 / (2 * conversion)
@@ -880,18 +801,12 @@ def get_demo_elasticity_results(structure_name, v0):
         "demo_mode": True
     }
 
-def quadratic_strain(eps, A, B, C):
-    """Quadratic polynomial for elastic constant extraction."""
-    return A * np.asarray(eps)**2 + B * np.asarray(eps) + C
-
 # ============================================================================
 # PHASE 1: THERMODYNAMIC STABILITY FUNCTIONS
 # ============================================================================
 
 def phase1_thermodynamic_stability(e_li2sn5_total, e_sn_per, e_li_per, n_li=4, n_sn=10):
-    """
-    Compute formation energy for Li₂Sn₅ relative to elemental references.
-    """
+    """Compute formation energy for Li₂Sn₅ relative to elemental references."""
     n_total = n_li + n_sn
     
     delta_e = e_li2sn5_total - n_li * e_li_per - n_sn * e_sn_per
@@ -916,13 +831,10 @@ def phase1_thermodynamic_stability(e_li2sn5_total, e_sn_per, e_li_per, n_li=4, n
 
 @st.cache_data(ttl=3600, show_spinner="Computing reference energies...")
 def compute_reference_energies(ecut, kpts, fmax, convergence_energy=1e-5, convergence_density=1e-4):
-    """
-    Compute bulk reference energies for Li and Sn with caching.
-    """
+    """Compute bulk reference energies for Li and Sn with caching."""
     log_message("Starting reference energy computation", "info")
     start_time = time.time()
     
-    # Fallback to precomputed values if GPAW unavailable
     if not GPAW_AVAILABLE:
         log_message("GPAW not available - using precomputed reference energies", "warning")
         result = {
@@ -936,7 +848,6 @@ def compute_reference_energies(ecut, kpts, fmax, convergence_energy=1e-5, conver
         return result
     
     try:
-        # ========== Bulk Lithium (BCC) ==========
         log_message("Computing bulk Li reference energy...", "info")
         li_bulk = bulk('Li', 'bcc', a=3.51)
         li_calc = create_calculator(ecut, kpts=kpts, txt=None, 
@@ -950,7 +861,6 @@ def compute_reference_energies(ecut, kpts, fmax, convergence_energy=1e-5, conver
         e_li = li_bulk.get_potential_energy() / len(li_bulk)
         log_message(f"Bulk Li: E = {e_li:.4f} eV/atom, a = {li_bulk.get_cell()[0,0]:.3f} Å", "info")
         
-        # ========== Bulk Tin (BCT) ==========
         log_message("Computing bulk Sn reference energy...", "info")
         sn_bulk = crystal('Sn', basis=[(0,0,0)], spacegroup=141,
                          cellpar=[5.83, 5.83, 3.18, 90, 90, 90])
@@ -996,23 +906,18 @@ def compute_reference_energies(ecut, kpts, fmax, convergence_energy=1e-5, conver
 # ============================================================================
 
 def compute_single_ev_point(args):
-    """
-    Worker function for parallel E-V point computation.
-    """
+    """Worker function for parallel E-V point computation."""
     vol, template_atoms, ecut, kpts, fmax, conv_e, conv_d, maxiter, is_demo = args
     
     try:
-        # 🔧 DEMO MODE: Use precomputed values
         if is_demo:
             current_vol = template_atoms.get_volume()
-            # Parabolic energy-volume relationship
             v0 = current_vol
             e0 = -len(template_atoms) * 3.0
-            b0_ev_a3 = 50.0 / 160.217  # 50 GPa in eV/Å³
+            b0_ev_a3 = 50.0 / 160.217
             energy = birch_murnaghan_eos(vol, e0, v0, b0_ev_a3, 4.0)
             return vol, energy
         
-        # PRODUCTION MODE: Actual DFT calculation
         atoms = template_atoms.copy()
         current_vol = atoms.get_volume()
         scale = (vol / current_vol) ** (1/3)
@@ -1039,13 +944,10 @@ def compute_single_ev_point(args):
 def compute_ev_curve(structure_name, a_init, c_init, symbols, spacegroup, basis, 
                      num_sn, kpts, volume_range, n_points, fmax, ecut, 
                      use_surrogate=False, convergence_energy=1e-5, convergence_density=1e-4, maxiter=200):
-    """
-    Compute energy-volume curve with optional parallelization and GP surrogate.
-    """
+    """Compute energy-volume curve with optional parallelization and GP surrogate."""
     log_message(f"Phase 2: Starting E-V curve for {structure_name}", "info")
     start_time = time.time()
     
-    # ========== Step 1: Create template structure ==========
     try:
         if structure_name == 'Sn (BCT)':
             template = crystal('Sn', basis=[(0,0,0)], spacegroup=141,
@@ -1062,7 +964,6 @@ def compute_ev_curve(structure_name, a_init, c_init, symbols, spacegroup, basis,
     v0_init = template.get_volume()
     log_message(f"{structure_name}: Initial volume V₀ = {v0_init:.2f} Å³", "info")
     
-    # 🔧 DEMO MODE: Return precomputed results immediately
     if not GPAW_AVAILABLE:
         log_message(f"Demo mode: Using precomputed E-V data for {structure_name}", "warning")
         demo_result = get_demo_ev_results(structure_name, v0_init, n_points, volume_range)
@@ -1071,15 +972,11 @@ def compute_ev_curve(structure_name, a_init, c_init, symbols, spacegroup, basis,
             log_message(f"Phase 2 complete for {structure_name} in {format_time(elapsed)} (demo)", "success")
             return demo_result
     
-    # ========== Step 2: Generate target volumes ==========
     scales = np.linspace(volume_range[0], volume_range[1], n_points)
     target_volumes = v0_init * scales
     log_message(f"Target volumes: {target_volumes[0]:.1f} → {target_volumes[-1]:.1f} Å³ ({n_points} points)", "info")
     
-    # ========== Step 3: E-V computation ==========
     is_demo = not GPAW_AVAILABLE
-    
-    # 🔧 FORCE SEQUENTIAL IN DEMO MODE (avoids pickling issues)
     use_parallel = enable_parallel and not is_demo and parallel_mode == "ProcessPoolExecutor" and n_workers > 1
     
     worker_args = [
@@ -1114,7 +1011,6 @@ def compute_ev_curve(structure_name, a_init, c_init, symbols, spacegroup, basis,
                 except Exception as e:
                     log_message(f"Exception at V={vol:.2f} Å³: {e}", "error")
     else:
-        # Sequential execution (required for demo mode)
         log_message("Using sequential execution", "info")
         for i, args in enumerate(worker_args):
             vol = args[0]
@@ -1129,11 +1025,9 @@ def compute_ev_curve(structure_name, a_init, c_init, symbols, spacegroup, basis,
     
     progress_bar.empty()
     
-    # Sort and filter results
     results = [r for r in results if r[1] is not None]
     results.sort(key=lambda x: x[0])
     
-    # 🔧 CRITICAL: Ensure we have enough points
     if len(results) < 3:
         log_message(f"Only {len(results)} E-V points computed - using demo fallback", "warning")
         demo_result = get_demo_ev_results(structure_name, v0_init, n_points, volume_range)
@@ -1145,7 +1039,6 @@ def compute_ev_curve(structure_name, a_init, c_init, symbols, spacegroup, basis,
     
     log_message(f"Computed {len(volumes)} E-V points for {structure_name}", "info")
     
-    # ========== Step 4: Birch-Murnaghan EOS fitting ==========
     if len(volumes) >= 4:
         try:
             eos = EquationOfState(volumes, energies, eos='birchmurnaghan')
@@ -1168,7 +1061,6 @@ def compute_ev_curve(structure_name, a_init, c_init, symbols, spacegroup, basis,
         Bp_fit = None
         eos = None
     
-    # ========== Step 5: Prepare return dictionary ==========
     elapsed = time.time() - start_time
     log_message(f"Phase 2 complete for {structure_name} in {format_time(elapsed)}", "success")
     
@@ -1200,19 +1092,15 @@ def compute_ev_curve(structure_name, a_init, c_init, symbols, spacegroup, basis,
 def compute_anisotropic_elasticity(structure_name, a0, c0, symbols, spacegroup, basis,
                                    kpts, fmax, ecut, strain_range, n_strain,
                                    convergence_energy=1e-5, convergence_density=1e-4, maxiter=200):
-    """
-    Compute directional elastic constants C₁₁ and C₃₃ using finite-strain method.
-    """
+    """Compute directional elastic constants C₁₁ and C₃₃ using finite-strain method."""
     log_message(f"Phase 3: Starting elasticity calculation for {structure_name}", "info")
     start_time = time.time()
     
-    # ========== Step 1: Create template structure ==========
     template = crystal(symbols=symbols, basis=basis, spacegroup=spacegroup,
                       cellpar=[a0, a0, c0, 90, 90, 90])
     v0 = template.get_volume()
     log_message(f"{structure_name}: Reference volume V₀ = {v0:.2f} Å³", "info")
     
-    # 🔧 DEMO MODE: Return precomputed results
     if not GPAW_AVAILABLE:
         log_message(f"Demo mode: Using precomputed elasticity data for {structure_name}", "warning")
         demo_result = get_demo_elasticity_results(structure_name, v0)
@@ -1221,11 +1109,9 @@ def compute_anisotropic_elasticity(structure_name, a0, c0, symbols, spacegroup, 
             log_message(f"Phase 3 complete for {structure_name} in {format_time(elapsed)} (demo)", "success")
             return demo_result
     
-    # ========== Step 2: Generate strain values ==========
     strains = np.linspace(strain_range[0]/100, strain_range[1]/100, n_strain)
     log_message(f"Strain range: {strain_range[0]:.1f}% to {strain_range[1]:.1f}% ({n_strain} points)", "info")
     
-    # ========== Step 3: Energy computation for each strain ==========
     def compute_energy_for_strain(axis, eps):
         """Compute energy at given strain along specified axis"""
         atoms = template.copy()
@@ -1250,11 +1136,9 @@ def compute_anisotropic_elasticity(structure_name, a0, c0, symbols, spacegroup, 
         
         return relax_fixed_volume(atoms, fmax=fmax, max_steps=100)
     
-    # Compute energies for all strains
     energies_a = [None] * len(strains)
     energies_c = [None] * len(strains)
     
-    # 🔧 Use ThreadPoolExecutor for better compatibility
     with ThreadPoolExecutor(max_workers=2) as executor:
         futures_a = {
             executor.submit(compute_energy_for_strain, 'a', eps): i 
@@ -1279,11 +1163,9 @@ def compute_anisotropic_elasticity(structure_name, a0, c0, symbols, spacegroup, 
             except Exception as e:
                 log_message(f"Failed to compute C₃₃ at ε={strains[idx]*100:.1f}%: {e}", "warning")
     
-    # Filter out failures
     valid_a = [(s, e) for s, e in zip(strains, energies_a) if e is not None]
     valid_c = [(s, e) for s, e in zip(strains, energies_c) if e is not None]
     
-    # 🔧 CRITICAL: Lower threshold for demo mode
     min_valid_points = 3 if not GPAW_AVAILABLE else 4
     
     if len(valid_a) < min_valid_points or len(valid_c) < min_valid_points:
@@ -1298,7 +1180,6 @@ def compute_anisotropic_elasticity(structure_name, a0, c0, symbols, spacegroup, 
     strains_a, energies_a = np.array(strains_a), np.array(energies_a)
     strains_c, energies_c = np.array(strains_c), np.array(energies_c)
     
-    # ========== Step 4: Quadratic fitting to extract elastic constants ==========
     try:
         popt_a, pcov_a = curve_fit(quadratic_strain, strains_a, energies_a)
         A_a, B_a, C_a = popt_a
@@ -1317,7 +1198,6 @@ def compute_anisotropic_elasticity(structure_name, a0, c0, symbols, spacegroup, 
         c11, c33 = 50.0, 40.0
         popt_a, popt_c = None, None
     
-    # ========== Step 5: Prepare return dictionary ==========
     elapsed = time.time() - start_time
     log_message(f"Phase 3 complete for {structure_name} in {format_time(elapsed)}", "success")
     
@@ -1343,9 +1223,7 @@ def compute_anisotropic_elasticity(structure_name, a0, c0, symbols, spacegroup, 
 # ============================================================================
 
 def predict_fracture_risk(expansion_pct, anisotropy_ratio, b0_drop_pct, c33_gpa):
-    """
-    Composite fracture risk assessment based on multiple mechanical criteria.
-    """
+    """Composite fracture risk assessment based on multiple mechanical criteria."""
     risk_score = 0
     factors = []
     
@@ -1379,16 +1257,16 @@ def predict_fracture_risk(expansion_pct, anisotropy_ratio, b0_drop_pct, c33_gpa)
     
     if risk_score >= 6:
         risk_level = "🔴 CRITICAL"
-        description = "High probability of pulverization/delamination during cycling. Consider nanostructuring, composites, or alternative materials."
+        description = "High probability of pulverization/delamination during cycling."
     elif risk_score >= 4:
         risk_level = "🟡 ELEVATED"
-        description = "Moderate fracture risk; consider nanostructuring, carbon coating, or composite electrode design to accommodate strain."
+        description = "Moderate fracture risk; consider nanostructuring."
     elif risk_score >= 2:
         risk_level = "🟢 MODERATE"
-        description = "Manageable mechanical degradation with proper electrode design (binder optimization, particle size control, etc.)."
+        description = "Manageable mechanical degradation with proper electrode design."
     else:
         risk_level = "🟢 LOW"
-        description = "Good mechanical stability expected; standard electrode processing should suffice."
+        description = "Good mechanical stability expected."
     
     log_message(f"Phase 4: Fracture risk = {risk_level} (score={risk_score}/9)", "info")
     
@@ -1510,7 +1388,6 @@ def plot_eos_scatter_with_fit(eos_results, phase_name, ax, show_residuals=False)
     vols = eos_results.get("volumes") if eos_results else None
     energies = eos_results.get("energies") if eos_results else None
     
-    # Handle missing/empty data gracefully
     if vols is None or energies is None or len(vols) == 0 or len(energies) == 0:
         ax.text(0.5, 0.5, f'⚠️ No data\nfor {phase_name}', 
                ha='center', va='center', fontsize=11, style='italic', color='gray')
@@ -1557,29 +1434,40 @@ def plot_eos_scatter_with_fit(eos_results, phase_name, ax, show_residuals=False)
                    fontsize=9, arrowprops=dict(arrowstyle='->', color='gray'))
 
 def plot_elasticity_histogram(c11, c33, phase_name, show_anisotropy=True):
-    """Create bar chart comparing directional elastic constants."""
+    """
+    Create bar chart comparing directional elastic constants.
+    🔧 FIXED: Properly handle scalar height values
+    """
     fig, ax = plt.subplots(figsize=(6, 5))
     
     constants = [c11, c33]
     labels = ['C₁₁ (a-b plane)', 'C₃₃ (c-axis)']
     colors = ['#3498db', '#e74c3c']
     
+    # Create bars
     bars = ax.bar(labels, constants, color=colors, edgecolor='black', 
                  linewidth=1.5, alpha=0.9)
     
+    # 🔧 FIX: Get max height from constants array, not from individual bar
+    max_height = max(constants) if constants else 1.0
+    
+    # Add value labels on bars
     for bar, val in zip(bars, constants):
         height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2, height + max(height)*0.02, 
+        # 🔧 FIX: Use max_height instead of max(height)
+        ax.text(bar.get_x() + bar.get_width()/2, height + max_height*0.02, 
                f'{val:.1f}', ha='center', va='bottom', fontsize=11, weight='bold')
     
+    # Labels and title
     ax.set_ylabel('Elastic Constant (GPa)', fontsize=11)
     ax.set_title(f'{phase_name}: Directional Stiffness', fontsize=12, weight='bold', pad=15)
     ax.grid(axis='y', alpha=0.3, linestyle='--')
     ax.set_axisbelow(True)
     
+    # Anisotropy annotation
     if show_anisotropy and c11 > 0:
         ar = c33 / c11
-        ax.text(0.5, -max(constants)*0.15, f'Anisotropy Ratio AR = C₃₃/C₁₁ = {ar:.3f}', 
+        ax.text(0.5, -max_height*0.15, f'Anisotropy Ratio AR = C₃₃/C₁₁ = {ar:.3f}', 
                ha='center', fontsize=10, style='italic',
                bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.5))
     
@@ -1651,9 +1539,10 @@ def plot_expansion_bar_chart(sn_results, li2sn5_results, expansion_pct, show_val
            bbox=dict(boxstyle='round', facecolor='white', alpha=0.9, edgecolor='red'))
     
     if show_values:
+        max_vol = max(volumes)
         for bar, vol in zip(bars, volumes):
             height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2, height + max(volumes)*0.03, 
+            ax.text(bar.get_x() + bar.get_width()/2, height + max_vol*0.03, 
                    f'{vol:.2f}', ha='center', va='bottom', fontsize=11, weight='bold')
     
     ax.axhline(y=v_per_sn_sn, color='gray', linestyle=':', linewidth=1, alpha=0.5)
@@ -1759,7 +1648,7 @@ with tab2:
     st.header("📊 Phase 2: Equation of State & Volume Expansion")
     
     if not GPAW_AVAILABLE:
-        st.info("ℹ️ **Demo Mode Active**: Using precomputed reference data for instant results. Install GPAW for full DFT calculations.")
+        st.info("ℹ️ **Demo Mode Active**: Using precomputed reference data for instant results.")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -2058,7 +1947,6 @@ with tab5:
             risk = fracture['risk_level'] if fracture else "Not computed"
             st.metric("Fracture Risk", risk.split()[-1] if fracture else "N/A")
         
-        # Export
         st.subheader("💾 Export Results")
         if thermo and sn_eos and li_eos:
             export_data = {
@@ -2083,7 +1971,7 @@ st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #7f8c8d; font-size: 0.85rem; padding: 1rem 0;'>
     <strong>Sn→Li₂Sn₅ Lithiation Mechanics Analyzer</strong><br>
-    Version 1.0.2 | Demo Mode Enhanced | Sequential Execution Fixed
+    Version 1.0.3 | Histogram Bug Fixed | All Plots Working
 </div>
 """, unsafe_allow_html=True)
 

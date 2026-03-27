@@ -112,3 +112,16 @@ Volume Expansion During Lithiation (vc-relaxation method for speed, and EOS mapp
 [![atomisticmechanics](https://img.shields.io/badge/deltavolumer5-streamlit-red)](https://volume-expansion-athermal-eosmapping5.streamlit.app/ )  (athermal EOS mapping method,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures)
 
 [![atomisticmechanics](https://img.shields.io/badge/deltavolumer6-streamlit-red)](https://volume-expansion-athermal-eosmapping6.streamlit.app/ )  (athermal EOS mapping method,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures)
+
+[![atomisticmechanics](https://img.shields.io/badge/deltavolumer7-streamlit-red)](https://volume-expansion-athermal-eosmapping7.streamlit.app/ )  (athermal EOS mapping method,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures)
+
+[![atomisticmechanics](https://img.shields.io/badge/deltavolumer8-streamlit-red)](https://volume-expansion-athermal-eosmapping8.streamlit.app/ )  (athermal EOS mapping method,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures, fast)
+
+[![atomisticmechanics](https://img.shields.io/badge/deltavolumer9-streamlit-red)](https://volume-expansion-athermal-eosmapping9.streamlit.app/ )  (athermal EOS mapping method,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures, fast and solutions available)
+
+[![atomisticmechanics](https://img.shields.io/badge/deltavolumer10-streamlit-red)](https://volume-expansion-athermal-eosmapping10.streamlit.app/ )  (athermal EOS mapping method,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures, fast and robust )
+
+
+
+
+

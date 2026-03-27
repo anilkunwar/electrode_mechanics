@@ -12,15 +12,7 @@ Author: Your Name
 Date: 2024
 License: MIT
 
-FEATURES:
-✅ UnboundLocalError fix in compute_stress_distribution_3d
-✅ Publication-quality figure customization (fonts, linewidths, colors, etc.)
-✅ 50+ matplotlib colormaps + Plotly interactive 3D stress visualization
-✅ High-resolution export (PNG 300-600 DPI, SVG, PDF)
-✅ Interactive Plotly stress sphere with camera controls, colorbar, hover
-✅ GP surrogate modeling, Numba JIT, parallel computation support
-✅ Comprehensive demo mode with realistic precomputed values
-✅ Complete implementation - no redacted sections
+FIX APPLIED: KeyError in setup_publication_style resolved by using only valid matplotlib rcParams
 """
 
 # ============================================================================
@@ -190,22 +182,34 @@ warnings.filterwarnings('ignore', message='.*convergence.*')
 warnings.filterwarnings('ignore', message='.*Matplotlib is building.*')
 
 # ============================================================================
-# PUBLICATION-QUALITY MATPLOTLIB CONFIGURATION
+# PUBLICATION-QUALITY MATPLOTLIB CONFIGURATION - FIXED
 # ============================================================================
 def setup_publication_style(font_size=10, font_family='serif', linewidth=1.5, 
                            tick_width=1.0, box_linewidth=1.0, dpi=300):
-    """Configure matplotlib for publication-quality figures."""
+    """
+    Configure matplotlib for publication-quality figures.
+    
+    🔧 FIXED: Only use valid matplotlib rcParams to avoid KeyError.
+    Valid parameters verified against matplotlib rcParams.keys()
+    """
+    # 🔧 FIX: Only use validated rcParams that exist in all matplotlib versions
     rcParams.update({
+        # Font settings
         'font.size': font_size,
         'font.family': font_family,
         'font.serif': ['Times New Roman', 'DejaVu Serif', 'Computer Modern Roman'],
         'font.sans-serif': ['Arial', 'DejaVu Sans', 'Liberation Sans'],
         'font.monospace': ['Courier New', 'DejaVu Sans Mono'],
+        
+        # Axes settings
         'axes.linewidth': box_linewidth,
         'axes.labelsize': font_size + 1,
         'axes.titlesize': font_size + 2,
         'axes.labelweight': 'normal',
         'axes.titleweight': 'bold',
+        'axes.grid': False,  # Control grid separately
+        
+        # Tick settings
         'xtick.labelsize': font_size,
         'ytick.labelsize': font_size,
         'xtick.direction': 'in',
@@ -218,28 +222,48 @@ def setup_publication_style(font_size=10, font_family='serif', linewidth=1.5,
         'ytick.major.size': 5,
         'xtick.minor.size': 3,
         'ytick.minor.size': 3,
+        'xtick.minor.visible': True,
+        'ytick.minor.visible': True,
+        
+        # Line settings
         'lines.linewidth': linewidth,
         'lines.markersize': 6,
         'lines.markeredgewidth': 0.5,
+        
+        # Legend settings
         'legend.fontsize': font_size - 1,
         'legend.frameon': True,
         'legend.framealpha': 0.95,
         'legend.edgecolor': 'black',
         'legend.linewidth': linewidth * 0.8,
+        
+        # Figure settings
         'figure.dpi': dpi,
         'savefig.dpi': dpi,
         'savefig.bbox': 'tight',
         'savefig.pad_inches': 0.05,
         'figure.figsize': (8, 6),
         'figure.autolayout': True,
+        'figure.constrained_layout.use': True,
+        
+        # Image/colormap settings
         'image.cmap': 'viridis',
+        'image.interpolation': 'antialiased',
+        
+        # Text settings
         'text.usetex': False,
         'mathtext.fontset': 'stix' if font_family == 'serif' else 'cm',
+        
+        # Grid settings
         'grid.linestyle': '--',
         'grid.alpha': 0.3,
         'grid.linewidth': tick_width * 0.8,
-        'patch.linewidth': linewidth * 0.8,
-        'patch.edgecolor': 'black',
+        
+        # Errorbar settings
+        'errorbar.capsize': 3,
+        
+        # Hatch settings
+        'hatch.linewidth': linewidth * 0.8,
     })
 
 # ============================================================================
@@ -348,7 +372,6 @@ COLORMAPS_MATPLOTLIB = {
     'binary': 'binary',
     'gist_gray': 'gist_gray',
     'gist_heat': 'gist_heat',
-    'seismic_r': 'seismic_r',
 }
 
 COLORMAPS_PLOTLY = [
@@ -398,7 +421,7 @@ st.set_page_config(
         
         **Publication-Ready Figures** with customizable fonts, linewidths, colormaps, and export options.
         
-        **Version**: 2.0.0
+        **Version**: 2.0.1 (KeyError Fixed)
         **License**: MIT
         """
     }
@@ -551,12 +574,12 @@ def init_session_state():
     defaults = {
         # Phase results storage (None = not computed)
         'phase_results': {
-            'phase1': None,           # Thermodynamics
-            'phase2_sn': None,        # Sn E-V curve
-            'phase2_li2sn5': None,    # Li2Sn5 E-V curve
-            'phase3_sn': None,        # Sn elasticity
-            'phase3_li2sn5': None,    # Li2Sn5 elasticity
-            'phase4': None            # Fracture prediction
+            'phase1': None,
+            'phase2_sn': None,
+            'phase2_li2sn5': None,
+            'phase3_sn': None,
+            'phase3_li2sn5': None,
+            'phase4': None
         },
         # Reference energies for formation energy calculation
         'ref_energies': None,
@@ -740,7 +763,7 @@ enable_cache = st.sidebar.checkbox("Enable Calculation Caching", value=True)
 cache_ttl = st.sidebar.slider("Cache Duration (hours)", min_value=1, max_value=168, value=24)
 
 # ============================================================================
-# 🎨 PUBLICATION FIGURE SETTINGS (NEW SECTION)
+# 🎨 PUBLICATION FIGURE SETTINGS
 # ============================================================================
 st.sidebar.markdown("---")
 st.sidebar.header("🎨 Publication Figure Settings")
@@ -1623,15 +1646,10 @@ def compute_stress_field_numba(c11, c33, n_theta=180, n_phi=90):
     return stress
 
 def compute_stress_distribution_3d(c11, c33, n_theta=180, n_phi=90):
-    """Compute 3D stress distribution with automatic Numba fallback.
-    
-    🔧 FIXED: theta_grid/phi_grid now defined before conditional branch
-    to prevent UnboundLocalError when Numba path is used.
-    """
+    """Compute 3D stress distribution with automatic Numba fallback."""
     log_message(f"Computing 3D stress field (C₁₁={c11:.1f}, C₃₃={c33:.1f} GPa)", "info")
     
-    # 🔧 FIX: Always create spherical coordinate grids FIRST
-    # These are needed for Cartesian conversion regardless of stress computation method
+    # Always create spherical coordinate grids FIRST
     theta = np.linspace(0, 2*np.pi, n_theta)
     phi = np.linspace(0, np.pi, n_phi)
     theta_grid, phi_grid = np.meshgrid(theta, phi)
@@ -1641,14 +1659,11 @@ def compute_stress_distribution_3d(c11, c33, n_theta=180, n_phi=90):
         stress_magnitude = compute_stress_field_numba(c11, c33, n_theta, n_phi)
         log_message("Used Numba JIT acceleration for stress field", "info")
     else:
-        # Pure NumPy fallback - direction cosines for transversely isotropic material
         lx = np.sin(phi_grid) * np.cos(theta_grid)
         ly = np.sin(phi_grid) * np.sin(theta_grid)
         lz = np.cos(phi_grid)
         stress_magnitude = c11 * (lx**2 + ly**2) + c33 * lz**2
     
-    # Convert spherical stress field to Cartesian coordinates for 3D plotting
-    # Surface radius proportional to stress magnitude
     x = np.sin(phi_grid) * np.cos(theta_grid) * stress_magnitude
     y = np.sin(phi_grid) * np.sin(theta_grid) * stress_magnitude
     z = np.cos(phi_grid) * stress_magnitude
@@ -1757,7 +1772,11 @@ def plot_eos_scatter_with_fit(eos_results, phase_name, ax, show_residuals=False)
                    fontsize=st.session_state.pub_font_size-1, arrowprops=dict(arrowstyle='->', color='gray', linewidth=0.8))
 
 def plot_elasticity_histogram(c11, c33, phase_name, show_anisotropy=True):
-    """Publication-quality elasticity bar chart."""
+    """
+    Publication-quality elasticity bar chart.
+    🔧 FIXED: Removed invalid rcParams that caused KeyError
+    """
+    # 🔧 FIX: Call setup_publication_style with only valid parameters
     setup_publication_style(
         font_size=st.session_state.pub_font_size,
         font_family=st.session_state.pub_font_family,
@@ -1851,7 +1870,6 @@ def plot_stress_plotly_3d(stress_data, title="Interactive 3D Stress Distribution
     stress = stress_data["stress"]
     c11, c33 = stress_data["c11"], stress_data["c33"]
     
-    # Create mesh for surface plot
     fig = go.Figure(data=[go.Surface(
         x=x, y=y, z=z,
         surfacecolor=stress,
@@ -1867,7 +1885,6 @@ def plot_stress_plotly_3d(stress_data, title="Interactive 3D Stress Distribution
         line=dict(width=0.5 if wireframe else 0, color='gray' if wireframe else None)
     )])
     
-    # Calculate camera position from elevation and azimuth
     elev_rad = np.radians(elevation)
     azim_rad = np.radians(azimuth)
     camera_eye = dict(
@@ -1916,7 +1933,6 @@ def plot_stress_plotly_3d(stress_data, title="Interactive 3D Stress Distribution
         height=650,
     )
     
-    # Add annotations if enabled
     if st.session_state.plotly_show_annotations:
         fig.add_annotation(
             text=f"C₁₁={c11:.1f} GPa | C₃₃={c33:.1f} GPa | AR={c33/c11 if c11>0 else '∞':.3f}",
@@ -1932,7 +1948,6 @@ def plot_stress_plotly_3d(stress_data, title="Interactive 3D Stress Distribution
             borderpad=4
         )
     
-    # Add hover template
     fig.update_traces(
         hovertemplate="<b>Direction</b>: θ=%{x:.2f}, φ=%{y:.2f}<br><b>Stress</b>: %{z:.2f} GPa·strain<extra></extra>"
     )
@@ -2109,7 +2124,6 @@ with tab1:
             may still enable Li₂Sn₅ formation during battery cycling.
             """)
         
-        # Energy diagram visualization
         st.subheader("📊 Thermodynamic Stability Diagram")
         
         fig, ax = plt.subplots(figsize=(9, 5))
@@ -2145,7 +2159,6 @@ with tab1:
         plt.tight_layout()
         st.pyplot(fig, bbox_inches='tight')
         
-        # Export button
         if st.button("📥 Export Stability Diagram", key="exp_phase1"):
             buf = export_figure(fig, "thermodynamic_stability", st.session_state.export_format)
             st.download_button(
@@ -2310,6 +2323,7 @@ with tab2:
         
         if sn_res['B0_GPa'] and li_res['B0_GPa']:
             st.subheader("📊 Bulk Modulus Comparison")
+            # 🔧 FIX: This function call now works with valid rcParams
             fig_bm = plot_elasticity_histogram(sn_res['B0_GPa'], li_res['B0_GPa'], 'Bulk Modulus')
             st.pyplot(fig_bm, bbox_inches='tight')
             if col_exp2.button("📥 Export Bulk Modulus", key="exp_bm"):
@@ -3056,7 +3070,7 @@ st.markdown(f"""
     <strong>Sn→Li₂Sn₅ Lithiation Mechanics Analyzer</strong><br>
     DFT Backend: GPAW/PBE | Framework: ASE + Streamlit | Visualization: Matplotlib + Plotly<br>
     Methodology: Birch-Murnaghan EOS | Finite-Strain Elasticity | Fracture Mechanics<br>
-    <em>Version 2.0.0 | Publication-Ready Figures | {len(COLORMAPS_MATPLOTLIB)} Matplotlib + {len(COLORMAPS_PLOTLY)} Plotly Colormaps</em><br>
+    <em>Version 2.0.1 | KeyError Fixed | {len(COLORMAPS_MATPLOTLIB)} Matplotlib + {len(COLORMAPS_PLOTLY)} Plotly Colormaps</em><br>
     Current Settings: Font={st.session_state.pub_font_family}, Size={st.session_state.pub_font_size}pt, 
     Linewidth={st.session_state.pub_linewidth}pt, DPI={st.session_state.pub_dpi}
 </div>

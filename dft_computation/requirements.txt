@@ -1,7 +1,9 @@
 streamlit
 ase
 numpy
+numba
 scipy
+scikit-learn
 gpaw
 pandas
 plotly

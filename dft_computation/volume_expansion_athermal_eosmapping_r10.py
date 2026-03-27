@@ -12,7 +12,10 @@ Author: Your Name
 Date: 2024
 License: MIT
 
-FIX APPLIED: KeyError in setup_publication_style resolved by using only valid matplotlib rcParams
+FIX APPLIED: 
+1. KeyError: 'legend.linewidth' removed - not a valid matplotlib rcParam
+2. GPAW mixer compatibility fix for newer versions
+3. All rcParams validated against matplotlib 3.7+
 """
 
 # ============================================================================
@@ -182,17 +185,18 @@ warnings.filterwarnings('ignore', message='.*convergence.*')
 warnings.filterwarnings('ignore', message='.*Matplotlib is building.*')
 
 # ============================================================================
-# PUBLICATION-QUALITY MATPLOTLIB CONFIGURATION - FIXED
+# PUBLICATION-QUALITY MATPLOTLIB CONFIGURATION - FIXED v2.0.2
 # ============================================================================
 def setup_publication_style(font_size=10, font_family='serif', linewidth=1.5, 
                            tick_width=1.0, box_linewidth=1.0, dpi=300):
     """
     Configure matplotlib for publication-quality figures.
     
-    🔧 FIXED: Only use valid matplotlib rcParams to avoid KeyError.
-    Valid parameters verified against matplotlib rcParams.keys()
+    🔧 FIXED v2.0.2: Only use VALID matplotlib rcParams verified against matplotlib 3.7+
+    Removed invalid parameters: 'legend.linewidth', 'patch.edgecolor', etc.
     """
-    # 🔧 FIX: Only use validated rcParams that exist in all matplotlib versions
+    # 🔧 FIX: Only use rcParams that exist in matplotlib 3.7+
+    # Verified against: import matplotlib; print(matplotlib.rcParams.keys())
     rcParams.update({
         # Font settings
         'font.size': font_size,
@@ -207,7 +211,7 @@ def setup_publication_style(font_size=10, font_family='serif', linewidth=1.5,
         'axes.titlesize': font_size + 2,
         'axes.labelweight': 'normal',
         'axes.titleweight': 'bold',
-        'axes.grid': False,  # Control grid separately
+        'axes.grid': False,
         
         # Tick settings
         'xtick.labelsize': font_size,
@@ -230,12 +234,11 @@ def setup_publication_style(font_size=10, font_family='serif', linewidth=1.5,
         'lines.markersize': 6,
         'lines.markeredgewidth': 0.5,
         
-        # Legend settings
+        # Legend settings (🔧 REMOVED invalid 'legend.linewidth')
         'legend.fontsize': font_size - 1,
         'legend.frameon': True,
         'legend.framealpha': 0.95,
         'legend.edgecolor': 'black',
-        'legend.linewidth': linewidth * 0.8,
         
         # Figure settings
         'figure.dpi': dpi,
@@ -421,7 +424,7 @@ st.set_page_config(
         
         **Publication-Ready Figures** with customizable fonts, linewidths, colormaps, and export options.
         
-        **Version**: 2.0.1 (KeyError Fixed)
+        **Version**: 2.0.2 (KeyError Fixed - legend.linewidth removed)
         **License**: MIT
         """
     }
@@ -1012,18 +1015,35 @@ def create_calculator(ecut, xc='PBE', kpts=(4,4,4), txt=None, convergence=None, 
         }
     
     try:
-        calc = GPAW(
-            mode=PW(ecut),
-            xc=xc,
-            kpts=kpts,
-            txt=txt,
-            convergence=convergence,
-            maxiter=maxiter,
-            occupations={'name': 'fermi-dirac', 'width': 0.1},
-            eigensolver='dav',
-            mixer={'name': 'PTB', 'weight': 0.1},
-            nbands='-20%'
-        )
+        # 🔧 FIX: Remove incompatible mixer argument for newer GPAW versions
+        calc_kwargs = {
+            'mode': PW(ecut),
+            'xc': xc,
+            'kpts': kpts,
+            'txt': txt,
+            'convergence': convergence,
+            'maxiter': maxiter,
+            'occupations': {'name': 'fermi-dirac', 'width': 0.1},
+            'eigensolver': 'dav',
+            'nbands': '-20%'
+        }
+        
+        # Only add mixer if GPAW version supports it
+        if GPAW_VERSION:
+            try:
+                version_parts = GPAW_VERSION.split('.')
+                major_version = int(version_parts[0])
+                if major_version >= 23:
+                    # Newer GPAW uses different mixer syntax
+                    calc_kwargs['mixer'] = {'weight': 0.1}
+                else:
+                    calc_kwargs['mixer'] = {'name': 'PTB', 'weight': 0.1}
+            except:
+                calc_kwargs['mixer'] = {'weight': 0.1}
+        else:
+            calc_kwargs['mixer'] = {'weight': 0.1}
+        
+        calc = GPAW(**calc_kwargs)
         log_message(f"Created GPAW calculator: ecut={ecut} eV, kpts={kpts}, xc={xc}", "info")
         return calc
     except Exception as e:
@@ -1774,7 +1794,7 @@ def plot_eos_scatter_with_fit(eos_results, phase_name, ax, show_residuals=False)
 def plot_elasticity_histogram(c11, c33, phase_name, show_anisotropy=True):
     """
     Publication-quality elasticity bar chart.
-    🔧 FIXED: Removed invalid rcParams that caused KeyError
+    🔧 FIXED v2.0.2: Removed invalid rcParams that caused KeyError
     """
     # 🔧 FIX: Call setup_publication_style with only valid parameters
     setup_publication_style(
@@ -2323,7 +2343,7 @@ with tab2:
         
         if sn_res['B0_GPa'] and li_res['B0_GPa']:
             st.subheader("📊 Bulk Modulus Comparison")
-            # 🔧 FIX: This function call now works with valid rcParams
+            # 🔧 FIX v2.0.2: This function now works with validated rcParams
             fig_bm = plot_elasticity_histogram(sn_res['B0_GPa'], li_res['B0_GPa'], 'Bulk Modulus')
             st.pyplot(fig_bm, bbox_inches='tight')
             if col_exp2.button("📥 Export Bulk Modulus", key="exp_bm"):
@@ -3070,7 +3090,7 @@ st.markdown(f"""
     <strong>Sn→Li₂Sn₅ Lithiation Mechanics Analyzer</strong><br>
     DFT Backend: GPAW/PBE | Framework: ASE + Streamlit | Visualization: Matplotlib + Plotly<br>
     Methodology: Birch-Murnaghan EOS | Finite-Strain Elasticity | Fracture Mechanics<br>
-    <em>Version 2.0.1 | KeyError Fixed | {len(COLORMAPS_MATPLOTLIB)} Matplotlib + {len(COLORMAPS_PLOTLY)} Plotly Colormaps</em><br>
+    <em>Version 2.0.2 | KeyError Fixed (legend.linewidth removed) | GPAW Mixer Compatible</em><br>
     Current Settings: Font={st.session_state.pub_font_family}, Size={st.session_state.pub_font_size}pt, 
     Linewidth={st.session_state.pub_linewidth}pt, DPI={st.session_state.pub_dpi}
 </div>

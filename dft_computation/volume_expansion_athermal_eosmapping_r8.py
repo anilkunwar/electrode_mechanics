@@ -2762,28 +2762,45 @@ with tab5:
         })
         
         # Create interactive scatter matrix with Plotly
+        # 🔧 FIX: Use go.Splom instead of go.Scattermatrix (Plotly 5.x+ compatibility)
         if not df_scatter.isnull().all().all():
-            fig = go.Figure(data=go.Scattermatrix(
-                dimensions=[
-                    {'label': d, 'values': df_scatter[d], 'range': [df_scatter[d].min()*0.95, df_scatter[d].max()*1.05]}
-                    for d in ['Volume/Sn (Å³)', 'Bulk Modulus (GPa)', 'C₃₃ (GPa)']
-                    if df_scatter[d].notna().any()
-                ],
-                marker=dict(
-                    color=['#2ecc71', '#9b59b6'],
-                    size=12,
-                    line=dict(width=1, color='white')
-                ),
-                text=df_scatter['Phase'],
-                hoverinfo='text+dimensions',
-                diagonal=dict(visible=False)
-            ))
-            fig.update_layout(
-                title="Multi-Property Scatter Matrix",
-                height=450,
-                hoverlabel=dict(bgcolor='white', font_size=11)
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            try:
+                fig = go.Figure(data=go.Splom(
+                    dimensions=[
+                        {'label': d, 'values': df_scatter[d].tolist()}
+                        for d in ['Volume/Sn (Å³)', 'Bulk Modulus (GPa)', 'C₃₃ (GPa)']
+                        if df_scatter[d].notna().any()
+                    ],
+                    marker=dict(
+                        color=['#2ecc71', '#9b59b6'],
+                        size=12,
+                        line=dict(width=1, color='white')
+                    ),
+                    text=df_scatter['Phase'].tolist(),
+                    hoverinfo='text+dimensions',
+                    diagonal=dict(visible=False)
+                ))
+                fig.update_layout(
+                    title="Multi-Property Scatter Matrix",
+                    height=450,
+                    hoverlabel=dict(bgcolor='white', font_size=11)
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.warning(f"⚠️ Scatter matrix plot failed: {e}. Showing alternative visualization.")
+                # Fallback: simple scatter plot
+                fig, ax = plt.subplots(figsize=(8, 6))
+                ax.scatter(df_scatter['Volume/Sn (Å³)'], df_scatter['Bulk Modulus (GPa)'], 
+                          c=['#2ecc71', '#9b59b6'], s=100, edgecolors='black')
+                for i, phase in enumerate(df_scatter['Phase']):
+                    ax.annotate(phase, (df_scatter['Volume/Sn (Å³)'].iloc[i], 
+                               df_scatter['Bulk Modulus (GPa)'].iloc[i]),
+                               xytext=(5, 5), textcoords='offset points')
+                ax.set_xlabel('Volume/Sn (Å³)')
+                ax.set_ylabel('Bulk Modulus (GPa)')
+                ax.set_title('Property Correlation')
+                ax.grid(True, alpha=0.3)
+                st.pyplot(fig)
         else:
             st.info("Insufficient data for correlation plot. Run Phase 2 and Phase 3.")
         
@@ -2940,7 +2957,7 @@ st.markdown("""
     <strong>Sn→Li₂Sn₅ Lithiation Mechanics Analyzer</strong><br>
     DFT Backend: GPAW/PBE | Framework: ASE + Streamlit<br>
     Methodology: Birch-Murnaghan EOS | Finite-Strain Elasticity | Fracture Mechanics<br>
-    <em>Version 1.0.0 | CPU-Parallelized | Demo Mode Available</em>
+    <em>Version 1.0.1 | CPU-Parallelized | Demo Mode Available | Plotly 5.x Compatible</em>
 </div>
 """, unsafe_allow_html=True)
 

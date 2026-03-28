@@ -769,28 +769,28 @@ with st.sidebar.expander("📐 Typography & Layout", expanded=True):
     st.session_state.pub_font_size = st.slider(
         "Base Font Size (pt)",
         min_value=8,
-        max_value=16,
+        max_value=20,
         value=st.session_state.pub_font_size,
         help="Recommended: 10-12pt for most journals"
     )
     st.session_state.pub_title_size = st.slider(
         "Title Font Size (pt)",
         min_value=10,
-        max_value=20,
+        max_value=25,
         value=st.session_state.pub_title_size,
         help="Should be larger than base font size"
     )
     st.session_state.pub_label_size = st.slider(
         "Axis Label Size (pt)",
         min_value=9,
-        max_value=18,
+        max_value=25,
         value=st.session_state.pub_label_size,
         help="Axis labels (X, Y, Z titles)"
     )
     st.session_state.pub_legend_fontsize = st.slider(
         "Legend Font Size (pt)",
         min_value=7,
-        max_value=14,
+        max_value=20,
         value=st.session_state.pub_legend_fontsize,
         help="Legend text size"
     )
@@ -799,7 +799,7 @@ with st.sidebar.expander("🖊️ Line & Marker Styling", expanded=True):
     st.session_state.pub_linewidth = st.slider(
         "Line Width (pt)",
         min_value=0.5,
-        max_value=3.0,
+        max_value=5.0,
         value=st.session_state.pub_linewidth,
         step=0.1,
         help="Thickness of plot lines. Recommended: 1.5-2.0pt for publications"
@@ -807,14 +807,14 @@ with st.sidebar.expander("🖊️ Line & Marker Styling", expanded=True):
     st.session_state.pub_marker_size = st.slider(
         "Marker Size (pt)",
         min_value=3,
-        max_value=12,
+        max_value=20,
         value=st.session_state.pub_marker_size,
         help="Size of scatter plot markers"
     )
     st.session_state.pub_tick_width = st.slider(
         "Tick Mark Width (pt)",
         min_value=0.5,
-        max_value=2.0,
+        max_value=5.0,
         value=st.session_state.pub_tick_width,
         step=0.1,
         help="Width of axis tick marks"
@@ -822,7 +822,7 @@ with st.sidebar.expander("🖊️ Line & Marker Styling", expanded=True):
     st.session_state.pub_box_linewidth = st.slider(
         "Axis Box Width (pt)",
         min_value=0.5,
-        max_value=2.0,
+        max_value=5.0,
         value=st.session_state.pub_box_linewidth,
         step=0.1,
         help="Width of axis border/box"

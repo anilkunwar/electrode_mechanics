@@ -1,6 +1,3 @@
-Here is the complete, consolidated Python code based on the file content provided. You can save this as `app.py` and run it using Streamlit.
-
-```python
 #!/usr/bin/env python3
 """
 DFT Volume Expansion & Mechanical Analysis: Sn → Li₂Sn₅ Lithiation
@@ -3015,4 +3012,4 @@ if st.session_state.last_error and st.session_state.enable_detailed_logging:
         if st.button("Clear Error", key="clear_err"):
             st.session_state.last_error = None
             st.rerun()
-```
+

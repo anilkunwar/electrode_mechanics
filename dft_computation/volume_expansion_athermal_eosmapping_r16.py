@@ -2009,7 +2009,6 @@ def plot_stress_plotly_3d(stress_data, title="Interactive 3D Stress Distribution
         colorscale=cmap_name,
         opacity=st.session_state.plotly_opacity,
         showscale=show_colorbar
-        )
     )
     
     # Add colorbar only if configured

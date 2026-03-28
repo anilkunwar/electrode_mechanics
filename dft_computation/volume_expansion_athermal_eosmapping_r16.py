@@ -1844,47 +1844,130 @@ def plot_radar_chart(properties_dict, title="Property Comparison", colors=None):
     
     plt.tight_layout()
     return fig
-
+#
 def plot_eos_scatter_with_fit(eos_results, phase_name, ax, show_residuals=False):
     """Publication-quality E-V scatter with EOS fit."""
+
     vols = eos_results.get("volumes") if eos_results else None
     energies = eos_results.get("energies") if eos_results else None
-    
+
     if vols is None or energies is None or len(vols) == 0 or len(energies) == 0:
-        ax.text(0.5, 0.5, f'⚠️ No data for {phase_name}', ha='center', va='center',
-                fontsize=st.session_state.pub_font_size, style='italic', color='gray')
+        ax.text(0.5, 0.5, f'⚠️ No data for {phase_name}',
+                ha='center', va='center',
+                fontsize=st.session_state.pub_font_size,
+                style='italic', color='gray')
+
         ax.set_xlabel('Volume (Å³)', fontsize=st.session_state.pub_label_size)
         ax.set_ylabel('Energy (eV)', fontsize=st.session_state.pub_label_size)
-        ax.set_title(f'{phase_name}: E-V Curve', fontsize=st.session_state.pub_title_size, weight='bold', pad=10)
+        ax.set_title(f'{phase_name}: E-V Curve',
+                     fontsize=st.session_state.pub_title_size,
+                     weight='bold', pad=10)
         ax.grid(True, alpha=0.2, linestyle='--')
         return
-    
-    v0, e0, B0, Bp = eos_results.get("v0_fit"), eos_results.get("e0_fit"), eos_results.get("B0_GPa"), eos_results.get("Bp")
+
+    # Extract EOS parameters
+    v0 = eos_results.get("v0_fit")
+    e0 = eos_results.get("e0_fit")
+    B0 = eos_results.get("B0_GPa")
+    Bp = eos_results.get("Bp")
+
+    # Smooth EOS curve
     v_min, v_max = np.min(vols), np.max(vols)
-    v_smooth = np.linspace(v_min*0.98, v_max*1.02, 200)
-    B0_val = (B0 * GPa) if B0 else 50*GPa
+    v_smooth = np.linspace(v_min * 0.98, v_max * 1.02, 200)
+
+    B0_val = (B0 * GPa) if B0 else 50 * GPa
     Bp_val = Bp if Bp else 4.0
-    e_smooth = [birch_murnaghan_eos(v, e0 or 0, v0 or v_min, B0_val, Bp_val) for v in v_smooth]
-    
-    palette = COLOR_PALETTES.get(st.session_state.pub_color_palette, COLOR_PALETTES['default'])
-    ax.scatter(vols, energies, c=palette[2], s=st.session_state.pub_marker_size**2, label='DFT Points', zorder=5,
-               edgecolors='white', linewidth=0.5, alpha=0.9)
-    ax.plot(v_smooth, e_smooth, palette[0], linewidth=st.session_state.pub_linewidth, label='Birch-Murnaghan Fit', alpha=0.9)
-    
+
+    e_smooth = [
+        birch_murnaghan_eos(v, e0 or 0, v0 or v_min, B0_val, Bp_val)
+        for v in v_smooth
+    ]
+
+    # Colors
+    palette = COLOR_PALETTES.get(
+        st.session_state.pub_color_palette,
+        COLOR_PALETTES['default']
+    )
+
+    # Scatter + fit
+    ax.scatter(vols, energies,
+               c=palette[2],
+               s=st.session_state.pub_marker_size ** 2,
+               label='DFT Points',
+               zorder=5,
+               edgecolors='white',
+               linewidth=0.5,
+               alpha=0.9)
+
+    ax.plot(v_smooth, e_smooth,
+            color=palette[0],
+            linewidth=st.session_state.pub_linewidth,
+            label='Birch-Murnaghan Fit',
+            alpha=0.9)
+
+    # Equilibrium volume line
     if v0:
-        ax.axvline(x=v0, color=palette[3], linestyle='--', linewidth=st.session_state.pub_linewidth*0.8, alpha=0.7, label=f'V₀ = {v0:.2f} Å³')
-    
+        ax.axvline(x=v0,
+                   color=palette[3],
+                   linestyle='--',
+                   linewidth=st.session_state.pub_linewidth * 0.8,
+                   alpha=0.7,
+                   label=f'V₀ = {v0:.2f} Å³')
+
+    # Labels
     ax.set_xlabel('Volume (Å³)', fontsize=st.session_state.pub_label_size)
     ax.set_ylabel('Energy (eV)', fontsize=st.session_state.pub_label_size)
-    ax.set_title(f'{phase_name}: E-V Curve & EOS Fit', fontsize=st.session_state.pub_title_size, weight='bold', pad=10)
-    ax.legend(fontsize=st.session_state.pub_legend_fontsize, loc='best', framealpha=0.95, frameon=True)
-    ax.grid(True, alpha=0.3, linestyle='--', linewidth=st.session_state.pub_tick_width)
-    
+    ax.set_title(f'{phase_name}: E-V Curve & EOS Fit',
+                 fontsize=st.session_state.pub_title_size,
+                 weight='bold', pad=10)
+
+    ax.legend(fontsize=st.session_state.pub_legend_fontsize,
+              loc='best', framealpha=0.95, frameon=True)
+
+    ax.grid(True,
+            alpha=0.3,
+            linestyle='--',
+            linewidth=st.session_state.pub_tick_width)
+
+    # ✅ FIXED: Annotation in guaranteed blank space
     if v0 and e0:
-        ax.annotate(f'E₀ = {e0:.3f} eV\nB₀ = {B0:.1f} GPa' if B0 else f'E₀ = {e0:.3f} eV',
-                   xy=(v0, e0), xytext=(10, -30), textcoords='offset points',
-                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.6, edgecolor='gray', linewidth=0.5),
-                   fontsize=st.session_state.pub_font_size-1, arrowprops=dict(arrowstyle='->', color='gray', linewidth=0.8))
+        annotation_text = (
+            f'E₀ = {e0:.3f} eV\n'
+            f'B₀ = {B0:.1f} GPa\n'
+            f'V₀ = {v0:.2f} Å³'
+        ) if B0 else f'E₀ = {e0:.3f} eV'
+
+        ax.annotate(
+            annotation_text,
+            xy=(v0, e0),                 # Arrow points to minimum
+            xycoords='data',
+            xytext=(0.98, 0.95),         # Upper-right blank space
+            textcoords='axes fraction',
+
+            bbox=dict(
+                boxstyle='round,pad=0.5',
+                facecolor='wheat',
+                alpha=0.95,
+                edgecolor='black',
+                linewidth=1.2
+            ),
+
+            fontsize=st.session_state.pub_font_size + 2,
+            fontweight='bold',
+            color='black',
+
+            arrowprops=dict(
+                arrowstyle='->',
+                color='black',
+                linewidth=1.5,
+                connectionstyle='arc3,rad=0.15'
+            ),
+
+            ha='right',
+            va='top',
+            zorder=10
+        )
+
 
 def plot_elasticity_histogram(c11, c33, phase_name, show_anisotropy=True):
     """Publication-quality elasticity bar chart."""

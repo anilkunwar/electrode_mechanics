@@ -1989,10 +1989,11 @@ def plot_stress_plotly_3d(stress_data, title="Interactive 3D Stress Distribution
         colorbar_config = dict(
             title=dict(
                 text="Stress (GPa·strain)",
-                font=dict(size=11, family="Times New Roman")
+                font=dict(size=11, family="Times New Roman"),
+                side='right'
             ),
             tickfont=dict(size=10, family="Times New Roman"),
-            titleside='right',
+            # titleside='right',
             thickness=15,
             len=0.8,
             xpad=10,

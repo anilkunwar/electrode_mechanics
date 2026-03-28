@@ -1968,7 +1968,7 @@ def plot_3d_stress_sphere(stress_data, title="Anisotropic Stress Distribution",
               bbox=dict(boxstyle='round', facecolor='white', alpha=0.85, edgecolor='gray', linewidth=0.5))
     
     return fig
-
+#
 def plot_stress_plotly_3d(stress_data, title="Interactive 3D Stress Distribution",
                           cmap_name=None, elevation=25, azimuth=45, show_colorbar=True, wireframe=False):
     """Interactive Plotly 3D stress sphere with 50+ colormaps and full controls."""
@@ -1977,21 +1977,44 @@ def plot_stress_plotly_3d(stress_data, title="Interactive 3D Stress Distribution
     stress = stress_data["stress"]
     c11, c33 = stress_data["c11"], stress_data["c33"]
     
-    fig = go.Figure(data=[go.Surface(
-        x=x, y=y, z=z,
+    # Build colorbar configuration with validated properties
+    colorbar_config = {}
+    if show_colorbar:
+        colorbar_config = dict(
+            title=dict(
+                text="Stress (GPa·strain)",
+                font=dict(size=11, family="Times New Roman")
+            ),
+            tickfont=dict(size=10, family="Times New Roman"),
+            titleside='right',
+            thickness=15,
+            len=0.8,
+            xpad=10,
+            ypad=0
+        )
+    
+    # Build surface trace with validated properties
+    surface_config = dict(
+        x=x, 
+        y=y, 
+        z=z,
         surfacecolor=stress,
         colorscale=cmap_name,
         opacity=st.session_state.plotly_opacity,
         showscale=show_colorbar,
-        colorbar=dict(
-            title="Stress (GPa·strain)",
-            titleside='right',
-            tickfont=dict(size=10, family="Times New Roman"),
-            titlefont=dict(size=11, family="Times New Roman")
-        ),
-        line=dict(width=0.5 if wireframe else 0, color='gray' if wireframe else None)
-    )])
+        line=dict(
+            width=0.5 if wireframe else 0, 
+            color='gray' if wireframe else None
+        )
+    )
     
+    # Add colorbar only if configured
+    if show_colorbar and colorbar_config:
+        surface_config['colorbar'] = colorbar_config
+    
+    fig = go.Figure(data=[go.Surface(**surface_config)])
+    
+    # Camera configuration
     elev_rad = np.radians(elevation)
     azim_rad = np.radians(azimuth)
     camera_eye = dict(
@@ -2000,7 +2023,8 @@ def plot_stress_plotly_3d(stress_data, title="Interactive 3D Stress Distribution
         z=np.cos(elev_rad)
     )
     
-    fig.update_layout(
+    # Layout configuration with validated properties
+    layout_config = dict(
         title=dict(
             text=title,
             font=dict(size=14, family="Times New Roman", weight="bold"),
@@ -2040,6 +2064,9 @@ def plot_stress_plotly_3d(stress_data, title="Interactive 3D Stress Distribution
         height=650,
     )
     
+    fig.update_layout(**layout_config)
+    
+    # Add annotations if enabled
     if st.session_state.plotly_show_annotations:
         fig.add_annotation(
             text=f"C₁₁={c11:.1f} GPa | C₃₃={c33:.1f} GPa | AR={c33/c11 if c11>0 else '∞':.3f}",
@@ -2055,10 +2082,13 @@ def plot_stress_plotly_3d(stress_data, title="Interactive 3D Stress Distribution
             borderpad=4
         )
     
+    # Update hover template
     fig.update_traces(
         hovertemplate="<b>Direction</b>: θ=%{x:.2f}, φ=%{y:.2f}<br><b>Stress</b>: %{z:.2f} GPa·strain<extra></extra>"
     )
+    
     return fig
+
 
 def plot_expansion_bar_chart(sn_results, li2sn5_results, expansion_pct, show_values=True):
     """Publication-quality volume expansion bar chart."""

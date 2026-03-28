@@ -1,4 +1,3 @@
-```python
 #!/usr/bin/env python3
 """
 DFT Volume Expansion & Mechanical Analysis: Sn → Li₂Sn₅ Lithiation
@@ -3303,4 +3302,4 @@ if st.session_state.last_error and st.session_state.enable_detailed_logging:
         if st.button("Clear Error", key="clear_err"):
             st.session_state.last_error = None
             st.rerun()
-```
+

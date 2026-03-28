@@ -2808,7 +2808,7 @@ with tab3:
             popt_c = li_el['fit_params_c']
             fit_c = quadratic_strain(strains_pct/100, *popt_c)
             ax2.plot(strains_pct, fit_c, '--', label='Quadratic Fit', color=palette[1], linewidth=st.session_state.pub_linewidth)
-        ax2.set_xlabel('Strain ε꜀ (%)', fontsize=st.session_state.pub_label_size)
+        ax2.set_xlabel('Strain ε_{c} (%)', fontsize=st.session_state.pub_label_size)
         ax2.set_ylabel('Energy (eV)', fontsize=st.session_state.pub_label_size)
         ax2.set_title('C₃₃ Extraction: c-axis Strain', fontsize=st.session_state.pub_title_size, weight='bold')
         ax2.legend(fontsize=st.session_state.pub_legend_fontsize)

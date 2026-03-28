@@ -2953,4 +2953,202 @@ with tab5:
         with col4:
             if fracture:
                 risk = fracture['risk_level']
-                risk_color = "#e74c3c" if "CRITICAL" in risk else "#f39c12" if "ELEVATED" in risk else "#27
+                risk_color = "#e74c3c" if "CRITICAL" in risk else "#f39c12" if "ELEVATED" in risk else "#27ae60"
+                st.markdown(f"""
+                <div class='metric-card' style='background: linear-gradient(135deg, {risk_color} 0%, #c0392b 100%)'>
+                <strong>Fracture Risk</strong>
+                <div style='font-size: 1.4rem; font-weight: bold'>{risk.split()[1]}</div>
+                <div style='font-size: 0.9rem; opacity: 0.9'>Score: {fracture['risk_score']}/9</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("<div class='metric-card'><strong>Fracture Risk</strong><br>Run Phase 4</div>", unsafe_allow_html=True)
+        
+        st.subheader("🎯 Multi-Property Radar Analysis")
+        radar_props = {}
+        if thermo:
+            radar_props['Stability'] = min(max(-thermo['formation_per_atom'] * 10, 0), 10)
+        else:
+            radar_props['Stability'] = 5
+        exp = st.session_state.expansion_pct
+        if exp is not None:
+            radar_props['Expansion Risk'] = min(max(exp / 3, 0), 10)
+        else:
+            radar_props['Expansion Risk'] = 5
+        if li_el:
+            ar = li_el['anisotropy_ratio']
+            radar_props['Anisotropy'] = min(abs(1 - ar) * 10 + 5, 10)
+        else:
+            radar_props['Anisotropy'] = 5
+        if sn_eos and li_eos and sn_eos['B0_GPa'] and li_eos['B0_GPa']:
+            retention = max(0, (1 - (sn_eos['B0_GPa'] - li_eos['B0_GPa']) / sn_eos['B0_GPa'])) * 10
+            radar_props['Stiffness'] = min(retention, 10)
+        else:
+            radar_props['Stiffness'] = 5
+        if li_el:
+            radar_props['c-axis Strength'] = min(li_el['c33_gpa'] / 10, 10)
+        else:
+            radar_props['c-axis Strength'] = 5
+        
+        fig_radar_dash = plot_radar_chart(radar_props, "Integrated Mechanical-Thermodynamic Profile")
+        st.pyplot(fig_radar_dash, bbox_inches='tight')
+        if st.button("📥 Export Radar Dashboard", key="exp_radar_dash"):
+            buf = export_figure(fig_radar_dash, "radar_dashboard", st.session_state.export_format)
+            st.download_button(
+                "⬇️ Download",
+                buf.getvalue(),
+                f"radar_dashboard.{st.session_state.export_format.lower()}",
+                f"image/{st.session_state.export_format.lower()}"
+            )
+        plt.close(fig_radar_dash)
+        
+        st.subheader("💾 Export Complete Results")
+        export_data = {
+            'Property': [
+                'Formation Energy (eV/atom)',
+                'Volume Expansion (%)',
+                'V₀ Sn (Å³)',
+                'V₀ Li₂Sn₅ (Å³)',
+                'B₀ Sn (GPa)',
+                'B₀ Li₂Sn₅ (GPa)',
+                'C₁₁ Sn (GPa)',
+                'C₃₃ Sn (GPa)',
+                'C₁₁ Li₂Sn₅ (GPa)',
+                'C₃₃ Li₂Sn₅ (GPa)',
+                'Anisotropy Ratio (Li₂Sn₅)',
+                'Fracture Risk Score'
+            ],
+            'Value': [
+                thermo['formation_per_atom'] if thermo else 'N/A',
+                st.session_state.expansion_pct if st.session_state.expansion_pct is not None else 'N/A',
+                sn_eos['v0_fit'] if sn_eos else 'N/A',
+                li_eos['v0_fit'] if li_eos else 'N/A',
+                sn_eos['B0_GPa'] if sn_eos and sn_eos['B0_GPa'] else 'N/A',
+                li_eos['B0_GPa'] if li_eos and li_eos['B0_GPa'] else 'N/A',
+                sn_el['c11_gpa'] if 'sn_el' in locals() and sn_el and 'c11_gpa' in sn_el else 'N/A',
+                sn_el['c33_gpa'] if 'sn_el' in locals() and sn_el and 'c33_gpa' in sn_el else 'N/A',
+                li_el['c11_gpa'] if li_el else 'N/A',
+                li_el['c33_gpa'] if li_el else 'N/A',
+                li_el['anisotropy_ratio'] if li_el else 'N/A',
+                fracture['risk_score'] if fracture else 'N/A'
+            ],
+            'Unit': [
+                'eV/atom', '%', 'Å³', 'Å³', 'GPa', 'GPa', 'GPa', 'GPa', 'GPa', 'GPa', '-', 'score (0-9)'
+            ]
+        }
+        export_df = pd.DataFrame(export_data)
+        csv = export_df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Complete Results (CSV)",
+            data=csv,
+            file_name="sn_li2sn5_mechanics_full_results.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+        
+        if st.button("📥 Download Metadata (JSON)", use_container_width=True, key="dl_metadata"):
+            metadata = {
+                'calculation_mode': calculation_mode,
+                'parameters': params,
+                'publication_settings': {
+                    'font_size': st.session_state.pub_font_size,
+                    'font_family': st.session_state.pub_font_family,
+                    'linewidth': st.session_state.pub_linewidth,
+                    'dpi': st.session_state.pub_dpi,
+                    'colormap': st.session_state.pub_cmap,
+                    'export_format': st.session_state.export_format
+                },
+                'computation_times': {k: format_time(v) for k, v in st.session_state.computation_times.items()},
+                'timestamp': datetime.now().isoformat(),
+                'gpaw_available': GPAW_AVAILABLE,
+                'gpaw_version': GPAW_VERSION,
+                'numba_available': NUMBA_AVAILABLE,
+                'sklearn_available': SKLEARN_AVAILABLE,
+                'results_summary': {
+                    'formation_energy': thermo['formation_per_atom'] if thermo else None,
+                    'volume_expansion_pct': st.session_state.expansion_pct,
+                    'bulk_modulus_sn': sn_eos['B0_GPa'] if sn_eos else None,
+                    'bulk_modulus_li2sn5': li_eos['B0_GPa'] if li_eos else None,
+                    'c11_li2sn5': li_el['c11_gpa'] if li_el else None,
+                    'c33_li2sn5': li_el['c33_gpa'] if li_el else None,
+                    'anisotropy_ratio': li_el['anisotropy_ratio'] if li_el else None,
+                    'fracture_risk': fracture['risk_level'] if fracture else None
+                }
+            }
+            json_str = json.dumps(safe_json_serialize(metadata), indent=2)
+            st.download_button(
+                label="📥 Download Metadata (JSON)",
+                data=json_str,
+                file_name="sn_li2sn5_metadata.json",
+                mime="application/json",
+                use_container_width=True
+            )
+        
+        if st.session_state.computation_times:
+            st.subheader("⏱️ Computation Time Summary")
+            time_data = []
+            for phase, elapsed in st.session_state.computation_times.items():
+                phase_name = phase.replace('phase', 'Phase ').replace('_', ' ').title()
+                time_data.append({'Phase': phase_name, 'Time': format_time(elapsed)})
+            time_df = pd.DataFrame(time_data)
+            st.dataframe(time_df, use_container_width=True, hide_index=True)
+            total_time = sum(st.session_state.computation_times.values())
+            st.metric("Total Computation Time", format_time(total_time))
+
+# ============================================================================
+# FOOTER & HELP SECTION
+# ============================================================================
+st.markdown("---")
+with st.expander("❓ Help & Frequently Asked Questions", expanded=False):
+    st.markdown("""
+    ### 🔧 Troubleshooting
+    **Q: GPAW import failed - what should I do?**
+    A: The app runs in demo mode with precomputed reference values. For full DFT calculations:
+    ```bash
+    pip install gpaw
+    # Or use conda for pre-built binaries
+    conda install -c conda-forge gpaw
+    ```
+    **Q: Calculations are taking too long**
+    A: Try these optimizations:
+    - Use "Fast Testing" mode for initial exploration
+    - Reduce `n_vol` (E-V points) and `n_strain` (elasticity points) in sidebar
+    - Enable GP surrogate to reduce DFT calls by ~50%
+    - Ensure parallel computation is enabled with appropriate worker count
+    **Q: How do I export publication-quality figures?**
+    A: Use the "Publication Figure Settings" in the sidebar to customize:
+    - Font family and sizes (recommended: 10-12pt serif for journals)
+    - Line widths (1.5-2.0pt for visibility)
+    - DPI (300 minimum, 600 for high-quality)
+    - Export format (PNG for universal, PDF/SVG for vector)
+    - Colormaps (viridis/plasma for colorblind-friendly)
+    **Q: How do I interpret the results?**
+    A: Key guidelines:
+    - ΔE_f < 0: Li₂Sn₅ thermodynamically stable vs. elemental references
+    - Expansion ~22%: Consistent with experimental observations for β-Sn → Li₂Sn₅
+    - AR < 1: c-axis softer than basal plane → risk of interlayer delamination
+    - Risk score ≥ 6: Consider nanostructuring or composite electrode design
+    ### 📚 References
+    - Birch, F. (1947). Finite elastic strain of cubic crystals. *Phys. Rev.* **71**, 809.
+    - Enkovaara, J. et al. (2010). Electronic structure calculations with GPAW. *J. Phys.: Condens. Matter* **22**, 253202.
+    - Hansen, W. & Chang, Y.A. (1969). Crystal structure of Li₂Sn₅. *Acta Crystallogr. B* **25**, 1031.
+    - Mouhat, F. & Coudert, F.-X. (2014). Elastic stability conditions. *Phys. Rev. B* **90**, 224104.
+    """)
+
+st.markdown(f"""
+<div style='text-align: center; color: #7f8c8d; font-size: 0.85rem; padding: 1rem 0;'>
+<strong>Sn→Li₂Sn₅ Lithiation Mechanics Analyzer</strong><br>
+DFT Backend: GPAW/PBE | Framework: ASE + Streamlit | Visualization: Matplotlib + Plotly<br>
+Methodology: Birch-Murnaghan EOS | Finite-Strain Elasticity | Fracture Mechanics<br>
+<em>Version 2.0.5 | Li₂Sn₅ Crystal Structure Manually Fixed | GPAW Mixer Compatible</em><br>
+Current Settings: Font={st.session_state.pub_font_family}, Size={st.session_state.pub_font_size}pt,
+Linewidth={st.session_state.pub_linewidth}pt, DPI={st.session_state.pub_dpi}
+</div>
+""", unsafe_allow_html=True)
+
+if st.session_state.last_error and st.session_state.enable_detailed_logging:
+    with st.expander("🐛 Last Error Details (Debug)", expanded=False):
+        st.code(st.session_state.last_error, language="text")
+        if st.button("Clear Error", key="clear_err"):
+            st.session_state.last_error = None
+            st.rerun()

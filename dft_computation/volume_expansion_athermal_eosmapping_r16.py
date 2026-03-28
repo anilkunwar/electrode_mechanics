@@ -2008,10 +2008,7 @@ def plot_stress_plotly_3d(stress_data, title="Interactive 3D Stress Distribution
         surfacecolor=stress,
         colorscale=cmap_name,
         opacity=st.session_state.plotly_opacity,
-        showscale=show_colorbar,
-        line=dict(
-            width=0.5 if wireframe else 0,
-            color='gray' if wireframe else None
+        showscale=show_colorbar
         )
     )
     

@@ -1922,7 +1922,9 @@ def plot_eos_scatter_with_fit(eos_results, phase_name, ax, show_residuals=False)
                  weight='bold', pad=10)
 
     ax.legend(fontsize=st.session_state.pub_legend_fontsize,
-              loc='best', bbox_to_anchor=(1.02, 1),borderaxespad=0,  framealpha=0.95, frameon=True)
+              loc='best', bbox_to_anchor=(1.03, 1),borderaxespad=0,  framealpha=0.95, frameon=True)
+    #ax.legend(fontsize=st.session_state.pub_legend_fontsize,
+    #          loc='best',framealpha=0.95, frameon=True)
 
     ax.grid(True,
             alpha=0.3,

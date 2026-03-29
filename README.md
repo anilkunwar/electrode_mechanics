@@ -119,7 +119,7 @@ Volume Expansion During Lithiation (vc-relaxation method for speed, and EOS mapp
 
 [![atomisticmechanics](https://img.shields.io/badge/deltavolumer9-streamlit-red)](https://volume-expansion-athermal-eosmapping9.streamlit.app/ )  (athermal EOS mapping method,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures,DEMO mode, fast and solutions available)
 
-[![atomisticmechanics](https://img.shields.io/badge/deltavolumer10-streamlit-red)](https://volume-expansion-athermal-eosmapping10.streamlit.app/ )  (athermal EOS mapping method,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures, fast and robust )
+[![atomisticmechanics](https://img.shields.io/badge/deltavolumer10-streamlit-red)](https://volume-expansion-athermal-eosmapping10.streamlit.app/ )  (athermal EOS mapping method,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures, fast and robust, phase 1 successful, others still in testing phase )
 
 [![atomisticmechanics](https://img.shields.io/badge/deltavolumer11-streamlit-red)](https://volume-expansion-athermal-eosmapping11.streamlit.app/ )  (athermal EOS mapping method,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures, DFT calculation with GPAW, fast and robust )
 
@@ -131,7 +131,7 @@ Volume Expansion During Lithiation (vc-relaxation method for speed, and EOS mapp
 
 [![atomisticmechanics](https://img.shields.io/badge/deltavolumer15-streamlit-red)](https://volume-expansion-athermal-eosmapping15.streamlit.app/ )  (athermal EOS mapping method, E-V mapping works,    Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures, DFT calculation with GPAW, fast and robust )
 
-[![atomisticmechanics](https://img.shields.io/badge/deltavolumer16-streamlit-red)](https://volume-expansion-athermal-eosmapping16.streamlit.app/ )  (athermal EOS mapping method, E-V mapping works,  plotly visualization works,  Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures, DFT calculation with GPAW, fast and robust )
+[![atomisticmechanics](https://img.shields.io/badge/deltavolumer16-streamlit-red)](https://volume-expansion-athermal-eosmapping16.streamlit.app/ )  (athermal EOS mapping method, E-V mapping works,  plotly visualization works,  Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures, DFT calculation with GPAW, fast and robust, all phases except phase 1 robust )
 
 
 

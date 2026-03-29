@@ -1157,7 +1157,9 @@ def plot_structure(atoms, title="", repeat=(1,1,1), ax=None, rotation='90x,45y,0
     atoms_repeated = atoms.repeat(repeat)
     from ase.visualize.plot import plot_atoms
     plot_atoms(atoms_repeated, ax=ax, radii=0.4, rotation=rotation,
-               show_unit_cell=True, colors={'Sn':'gray', 'Li':'red'})
+           show_unit_cell=True, colors=None)  # Use ASE defaults
+    #plot_atoms(atoms_repeated, ax=ax, radii=0.4, rotation=rotation,
+    #           show_unit_cell=True, colors={'Sn':'gray', 'Li':'red'})
     ax.set_title(title, fontsize=st.session_state.pub_title_size, weight='bold')
     ax.set_xlabel('x (Å)', fontsize=st.session_state.pub_label_size)
     ax.set_ylabel('y (Å)', fontsize=st.session_state.pub_label_size)

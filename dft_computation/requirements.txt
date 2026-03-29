@@ -8,3 +8,4 @@ gpaw
 pandas
 plotly
 matplotlib
+nglview

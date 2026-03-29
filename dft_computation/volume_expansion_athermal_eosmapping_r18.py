@@ -9,7 +9,7 @@ Deploy to Streamlit Cloud: No GPU required, CPU-only parallelization
 Author: Your Name
 Date: 2024
 License: MIT
-FIX APPLIED (Version 2.1.1):
+FIX APPLIED (Version 2.1.2):
 1. KeyError: 'legend.linewidth' removed - not a valid matplotlib rcParam
 2. GPAW mixer compatibility fix for newer versions
 3. All rcParams validated against matplotlib 3.7+
@@ -33,6 +33,11 @@ FIX APPLIED (Version 2.1.1):
 - Fixed colors dictionary issue in plot_structure()
 - Added try/except fallback for ASE color scheme
 - Uses ASE default Jmol colors when custom dict fails
+10. 🔧🔧🔧 v2.1.2 ENHANCEMENT: nglview Robustness & Cloud Compatibility
+- Added hasattr check for _repr_html_ method
+- Added try/except for AttributeError handling
+- Added cloud environment detection to disable nglview gracefully
+- Fallback messaging for users in unsupported environments
 """
 # ============================================================================
 # IMPORTS (with graceful fallbacks for demo mode)
@@ -416,7 +421,7 @@ st.set_page_config(
         # DFT Sn Anode Lithiation Analyzer
         Integrated thermodynamic, structural, and mechanical analysis for battery materials.
         **Publication-Ready Figures** with customizable fonts, linewidths, colormaps, and export options.
-        **Version**: 2.1.1 (ASE plot_atoms KeyError FIXED)
+        **Version**: 2.1.2 (nglview Robustness + Cloud Compatibility)
         **License**: MIT
         """
     }
@@ -1156,49 +1161,21 @@ def save_atoms_to_cif(atoms, filename_prefix="structure", directory="./cif_files
 def plot_structure(atoms, title="", repeat=(1,1,1), ax=None, rotation='90x,45y,0z'):
     """
     Static matplotlib 2D projection of the repeated structure.
-    🔧🔧🔧 v2.1.1 FIX: Resolved ASE plot_atoms KeyError for colors dictionary
+    🔧🔧🔧 v2.1.2 FIX: Uses ASE default Jmol colors (colors=None) to avoid KeyError
     """
     if ax is None:
         fig, ax = plt.subplots(figsize=(8, 6))
     else:
         fig = ax.figure
-    
     atoms_repeated = atoms.repeat(repeat)
     from ase.visualize.plot import plot_atoms
     
-    # 🔧 FIX v2.1.1: ASE plot_atoms requires ALL atom symbols in colors dict
-    # Solution: Use ASE default Jmol colors (colors=None) or build complete dict
-    try:
-        # Primary: Use ASE default Jmol color scheme (most reliable)
-        plot_atoms(atoms_repeated, ax=ax, radii=0.4, rotation=rotation,
-                   show_unit_cell=True, colors=None)
-    except KeyError as e:
-        # Fallback: Build complete color dictionary for all symbols present
-        log_message(f"ASE colors KeyError: {e}, using fallback color dict", "warning")
-        symbols = set(atoms_repeated.get_chemical_symbols())
-        # Standard Jmol-like colors for common elements
-        color_dict = {
-            'Sn': '#808080',  # Gray for Tin
-            'Li': '#9090F0',  # Violet for Lithium (Jmol standard)
-        }
-        # Add any missing symbols with random colors
-        for s in symbols:
-            if s not in color_dict:
-                color_dict[s] = '#%02x%02x%02x' % tuple(np.random.randint(50, 200, 3))
-        
-        try:
-            plot_atoms(atoms_repeated, ax=ax, radii=0.4, rotation=rotation,
-                       show_unit_cell=True, colors=color_dict)
-        except Exception as e2:
-            log_message(f"Fallback plot_atoms also failed: {e2}", "error")
-            # Last resort: simple scatter plot
-            positions = atoms_repeated.get_positions()
-            symbols = atoms_repeated.get_chemical_symbols()
-            for sym in set(symbols):
-                mask = np.array(symbols) == sym
-                ax.scatter(positions[mask, 0], positions[mask, 1], 
-                          label=sym, s=100, alpha=0.7)
-            ax.legend()
+    # 🔧 FIX v2.1.2: Use ASE default Jmol colors instead of custom dict
+    # The colors parameter in newer ASE versions requires ALL atom symbols
+    # to be present in the dict or it raises KeyError. Using None enables
+    # ASE's built-in Jmol color scheme which handles all elements safely.
+    plot_atoms(atoms_repeated, ax=ax, radii=0.4, rotation=rotation,
+               show_unit_cell=True, colors=None)
     
     ax.set_title(title, fontsize=st.session_state.pub_title_size, weight='bold')
     ax.set_xlabel('x (Å)', fontsize=st.session_state.pub_label_size)
@@ -3373,14 +3350,45 @@ with tab6:
         - **4k**: (0.33,0.17,0.5), (0.17,0.33,0.5), (0.67,0.83,0.5), (0.83,0.67,0.5)
         """)
     
-    # Interactive 3D
-    if st.button("🌐 Show Interactive 3D (nglview)", key="show_ngl"):
-        with st.spinner("Launching nglview..."):
-            w_li = show_nglview(li_atoms)
-            if w_li:
-                st.components.v1.html(w_li._repr_html_(), height=600)
-            else:
-                st.info("Install nglview: `pip install nglview`")
+    # 🔧 FIX v2.1.2: Detect cloud/headless environment for nglview compatibility
+    import os
+    is_cloud = (os.environ.get('STREAMLIT_SHARING') is not None or 
+                os.environ.get('STREAMLIT_CLOUD') is not None or 
+                os.environ.get('STREAMLIT_SERVER_PORT') is not None or
+                not os.environ.get('DISPLAY', ''))
+    
+    # Interactive 3D (only show button if not in cloud environment)
+    if not is_cloud:
+        if st.button("🌐 Show Interactive 3D (nglview)", key="show_ngl"):
+            with st.spinner("Launching nglview..."):
+                w_li = show_nglview(li_atoms)
+                if w_li:
+                    try:  # 🔧 FIX: Add robust error handling for nglview
+                        # Check if _repr_html_ exists before calling
+                        if hasattr(w_li, '_repr_html_'):
+                            html_repr = w_li._repr_html_()
+                            if html_repr:
+                                st.components.v1.html(html_repr, height=600)
+                            else:
+                                st.warning("nglview returned empty HTML representation.")
+                        else:
+                            st.error("nglview widget missing _repr_html_ method.")
+                            st.info("💡 Use the static matplotlib plots below instead.")
+                    except AttributeError as e:
+                        st.error(f"nglview AttributeError: {e}")
+                        st.info("💡 nglview is not compatible with this environment. "
+                               "Use the static matplotlib plots below or download CIF files.")
+                    except Exception as e:
+                        st.error(f"Failed to render nglview: {str(e)}")
+                        st.info("💡 Use the static matplotlib plots below instead.")
+                else:
+                    st.info("ℹ️ nglview not installed. Install with `pip install nglview` for interactive 3D, "
+                           "or use the static plots below.")
+    else:
+        st.info("ℹ️ **Interactive 3D (nglview) disabled in cloud environment.**\n\n"
+                "Cloud environments don't support the JavaScript components required for nglview. "
+                "Please use the **static matplotlib plots** below or **download the CIF files** "
+                "to view structures in local software (VESTA, CrystalMaker, Mercury, etc.).")
     
     # Static plots side by side
     col1, col2 = st.columns(2)
@@ -3467,7 +3475,7 @@ st.markdown(f"""
 <strong>Sn→Li₂Sn₅ Lithiation Mechanics Analyzer</strong><br>
 DFT Backend: GPAW/PBE | Framework: ASE + Streamlit | Visualization: Matplotlib + Plotly<br>
 Methodology: Birch-Murnaghan EOS | Finite-Strain Elasticity | Fracture Mechanics<br>
-<em>Version 2.1.1 | ASE plot_atoms KeyError FIXED</em><br>
+<em>Version 2.1.2 | nglview Robustness + Cloud Compatibility</em><br>
 Current Settings: Font={st.session_state.pub_font_family}, Size={st.session_state.pub_font_size}pt,
 Linewidth={st.session_state.pub_linewidth}pt, DPI={st.session_state.pub_dpi}
 </div>

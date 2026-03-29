@@ -2795,7 +2795,7 @@ with tab3:
             popt_a = li_el['fit_params_a']
             fit_a = quadratic_strain(strains_pct/100, *popt_a)
             ax1.plot(strains_pct, fit_a, '--', label='Quadratic Fit', color=palette[0], linewidth=st.session_state.pub_linewidth)
-        ax1.set_xlabel('Strain εₐ (%)', fontsize=st.session_state.pub_label_size)
+        ax1.set_xlabel('Strain ε$_{a}$ (%)', fontsize=st.session_state.pub_label_size)
         ax1.set_ylabel('Energy (eV)', fontsize=st.session_state.pub_label_size)
         ax1.set_title('C₁₁ Extraction: a-axis Strain', fontsize=st.session_state.pub_title_size, weight='bold')
         ax1.legend(fontsize=st.session_state.pub_legend_fontsize)

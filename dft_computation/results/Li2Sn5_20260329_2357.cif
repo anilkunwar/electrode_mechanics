@@ -1,0 +1,46 @@
+data_image0
+_chemical_formula_structural       Sn10Li4
+_chemical_formula_sum              "Sn10 Li4"
+_cell_length_a       10.35
+_cell_length_b       10.35
+_cell_length_c       3.15
+_cell_angle_alpha    90.0
+_cell_angle_beta     90.0
+_cell_angle_gamma    90.0
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Sn  Sn1       1.0  0.0  0.0  0.0  1.0000
+  Sn  Sn2       1.0  0.04830917874396135  0.04830917874396135  0.0  1.0000
+  Sn  Sn3       1.0  0.028502415458937197  0.07681159420289856  0.0  1.0000
+  Sn  Sn4       1.0  0.07681159420289856  0.028502415458937197  0.0  1.0000
+  Sn  Sn5       1.0  0.06811594202898551  0.01980676328502415  0.0  1.0000
+  Sn  Sn6       1.0  0.01980676328502415  0.06811594202898551  0.0  1.0000
+  Sn  Sn7       1.0  0.015458937198067632  0.06376811594202898  0.0  1.0000
+  Sn  Sn8       1.0  0.06376811594202898  0.015458937198067632  0.0  1.0000
+  Sn  Sn9       1.0  0.08115942028985507  0.03285024154589372  0.0  1.0000
+  Sn  Sn10      1.0  0.03285024154589372  0.08115942028985507  0.0  1.0000
+  Li  Li1       1.0  0.03188405797101449  0.01642512077294686  0.15873015873015872  1.0000
+  Li  Li2       1.0  0.01642512077294686  0.03188405797101449  0.15873015873015872  1.0000
+  Li  Li3       1.0  0.06473429951690822  0.08019323671497584  0.15873015873015872  1.0000
+  Li  Li4       1.0  0.08019323671497584  0.06473429951690822  0.15873015873015872  1.0000
+
+# Generated from manual Wyckoff builder on 2026-03-29 23:57:41.221743
+# Structure: Li₂Sn₅
+# Spacegroup: P4/mbm (127)
+# Formula: Li4Sn10
+# Volume: 337.4359 Å³
+# Lattice a = 10.3500 Å, c = 3.1500 Å

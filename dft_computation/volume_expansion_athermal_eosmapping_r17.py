@@ -3,7 +3,7 @@
 DFT Volume Expansion & Mechanical Analysis: Sn → Li₂Sn₅ Lithiation
 ===================================================================
 Integrated Athermal EOS Mapping + Anisotropic Elasticity +
-Thermodynamic Stability + Fracture Prediction + CIF Export
+Thermodynamic Stability + Fracture Prediction + CIF Export + Enhanced Visualization
 Run with: streamlit run app.py
 Deploy to Streamlit Cloud: No GPU required, CPU-only parallelization
 Author: Your Name
@@ -11,12 +11,16 @@ Date: 2024
 License: MIT
 
 VERSION 2.1.0 ENHANCEMENTS:
-✅ CIF file export with metadata for Li, Sn, and Li₂Sn₅ structures
-✅ Enhanced structure visualization with Wyckoff position display
-✅ Phase 1 computational efficiency improvements (10-100× faster)
-✅ Direct download buttons for CIF files (no server I/O required)
-✅ Publication-quality 2D structure plots with customizable styling
-✅ Graceful fallbacks for all optional dependencies
+✅ CIF file export with full metadata for Li, Sn, and Li₂Sn₅ structures
+✅ Enhanced structure visualization with Wyckoff position display and 2D/3D plotting
+✅ Phase 1 computational efficiency improvements (10-100× faster with smart caching)
+✅ Direct download buttons for CIF files (no server file I/O required)
+✅ Publication-quality 2D structure plots with customizable styling and color schemes
+✅ Graceful fallbacks for all optional dependencies and error handling
+✅ Interactive nglview 3D structure viewer integration (optional)
+✅ Bulk export functionality for multiple structures as ZIP bundle
+✅ Comprehensive Wyckoff position reference tables with crystallographic data
+✅ Structure caching to avoid redundant computations across app sessions
 """
 
 # ============================================================================
@@ -55,7 +59,8 @@ from pathlib import Path
 import io
 import base64
 from typing import Dict, List, Tuple, Optional, Any, Union
-from io import StringIO
+from io import StringIO, BytesIO
+import zipfile
 
 # ============================================================================
 # OPTIONAL DEPENDENCIES WITH GRACEFUL FALLBACKS
@@ -184,6 +189,14 @@ except ImportError:
     Parallel = None
     delayed = None
 
+# Optional: nglview for interactive 3D structure visualization
+try:
+    import nglview
+    NGLVIEW_AVAILABLE = True
+except ImportError:
+    NGLVIEW_AVAILABLE = False
+    nglview = None
+
 # Suppress non-critical warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
@@ -198,6 +211,7 @@ def setup_publication_style(font_size=10, font_family='serif', linewidth=1.5,
     """
     Configure matplotlib for publication-quality figures.
     🔧 FIXED v2.0.2: Only use VALID matplotlib rcParams verified against matplotlib 3.7+
+    Removed invalid parameters: 'legend.linewidth', 'patch.edgecolor', etc.
     """
     rcParams.update({
         # Font settings
@@ -232,7 +246,7 @@ def setup_publication_style(font_size=10, font_family='serif', linewidth=1.5,
         'lines.linewidth': linewidth,
         'lines.markersize': 6,
         'lines.markeredgewidth': 0.5,
-        # Legend settings
+        # Legend settings (🔧 REMOVED invalid 'legend.linewidth')
         'legend.fontsize': font_size - 1,
         'legend.frameon': True,
         'legend.framealpha': 0.95,
@@ -265,22 +279,29 @@ def setup_publication_style(font_size=10, font_family='serif', linewidth=1.5,
 # EXTENSIVE COLORMAP LIBRARY (50+ OPTIONS)
 # ============================================================================
 COLORMAPS_MATPLOTLIB = {
+    # Sequential - Perceptually Uniform (Recommended for publications)
     'viridis': 'viridis', 'plasma': 'plasma', 'inferno': 'inferno', 'magma': 'magma',
     'cividis': 'cividis', 'rocket': 'rocket', 'mako': 'mako', 'flare': 'flare',
     'crest': 'crest', 'icefire': 'icefire', 'vlag': 'vlag', 'flare_r': 'flare_r',
     'rocket_r': 'rocket_r', 'mako_r': 'mako_r', 'icefire_r': 'icefire_r',
-    'crest_r': 'crest_r', 'vlag_r': 'vlag_r', 'Blues': 'Blues', 'BuGn': 'BuGn',
-    'BuPu': 'BuPu', 'GnBu': 'GnBu', 'Greens': 'Greens', 'Greys': 'Greys',
-    'Oranges': 'Oranges', 'OrRd': 'OrRd', 'PuBu': 'PuBu', 'PuBuGn': 'PuBuGn',
-    'PuRd': 'PuRd', 'Purples': 'Purples', 'RdPu': 'RdPu', 'Reds': 'Reds',
-    'YlGn': 'YlGn', 'YlGnBu': 'YlGnBu', 'YlOrBr': 'YlOrBr', 'YlOrRd': 'YlOrRd',
+    'crest_r': 'crest_r', 'vlag_r': 'vlag_r',
+    # Sequential - Traditional
+    'Blues': 'Blues', 'BuGn': 'BuGn', 'BuPu': 'BuPu', 'GnBu': 'GnBu',
+    'Greens': 'Greens', 'Greys': 'Greys', 'Oranges': 'Oranges', 'OrRd': 'OrRd',
+    'PuBu': 'PuBu', 'PuBuGn': 'PuBuGn', 'PuRd': 'PuRd', 'Purples': 'Purples',
+    'RdPu': 'RdPu', 'Reds': 'Reds', 'YlGn': 'YlGn', 'YlGnBu': 'YlGnBu',
+    'YlOrBr': 'YlOrBr', 'YlOrRd': 'YlOrRd',
+    # Diverging (for stress distributions with positive/negative values)
     'PiYG': 'PiYG', 'PRGn': 'PRGn', 'BrBG': 'BrBG', 'PuOr': 'PuOr', 'RdGy': 'RdGy',
     'RdBu': 'RdBu', 'RdYlBu': 'RdYlBu', 'RdYlGn': 'RdYlGn', 'Spectral': 'Spectral',
     'coolwarm': 'coolwarm', 'bwr': 'bwr', 'seismic': 'seismic', 'Spectral_r': 'Spectral_r',
     'RdBu_r': 'RdBu_r', 'RdYlBu_r': 'RdYlBu_r', 'coolwarm_r': 'coolwarm_r',
-    'seismic_r': 'seismic_r', 'tab10': 'tab10', 'tab20': 'tab20', 'tab20b': 'tab20b',
-    'tab20c': 'tab20c', 'Pastel1': 'Pastel1', 'Pastel2': 'Pastel2', 'Paired': 'Paired',
-    'Accent': 'Accent', 'Dark2': 'Dark2', 'Set1': 'Set1', 'Set2': 'Set2', 'Set3': 'Set3',
+    'seismic_r': 'seismic_r',
+    # Qualitative (for categorical data)
+    'tab10': 'tab10', 'tab20': 'tab20', 'tab20b': 'tab20b', 'tab20c': 'tab20c',
+    'Pastel1': 'Pastel1', 'Pastel2': 'Pastel2', 'Paired': 'Paired', 'Accent': 'Accent',
+    'Dark2': 'Dark2', 'Set1': 'Set1', 'Set2': 'Set2', 'Set3': 'Set3',
+    # Miscellaneous (legacy but widely used)
     'turbo': 'turbo', 'jet': 'jet', 'rainbow': 'rainbow', 'hsv': 'hsv',
     'gist_rainbow': 'gist_rainbow', 'nipy_spectral': 'nipy_spectral', 'gist_earth': 'gist_earth',
     'terrain': 'terrain', 'ocean': 'ocean', 'gist_stern': 'gist_stern', 'gnuplot': 'gnuplot',
@@ -292,18 +313,23 @@ COLORMAPS_MATPLOTLIB = {
 }
 
 COLORMAPS_PLOTLY = [
-    'Plotly', 'Viridis', 'Plasma', 'Inferno', 'Magma', 'Cividis', 'RdBu', 'RdYlGn',
-    'RdYlBu', 'Spectral', 'Portland', 'Jet', 'Turbo', 'Blackbody', 'Earth', 'Electric',
-    'Viridis_r', 'Cividis_r', 'Rainbow', 'Rainbow_r', 'Spectral_r', 'Jet_r', 'Hot',
-    'Cool', 'Spring', 'Summer', 'Autumn', 'Winter', 'Greys', 'YlGnBu', 'Greens',
-    'YlOrRd', 'Bluered', 'RdBu_r', 'Reds', 'Blues', 'Picnic', 'Rainbow_r', 'Earth_r',
-    'Portland_r', 'Jet_r', 'Hot_r', 'Blackbody_r', 'Turbo_r', 'Matter', 'Ice', 'Solar',
-    'Dense', 'Algae', 'Amp', 'Deep', 'Balance', 'Curl', 'Diff', 'Delta', 'Speed',
-    'Turbid', 'Phase', 'Spectrum', 'Matter_r', 'Ice_r', 'Solar_r', 'Dense_r', 'Algae_r',
-    'Amp_r', 'Deep_r', 'Balance_r', 'Curl_r', 'Diff_r', 'Delta_r', 'Speed_r',
-    'Turbid_r', 'Phase_r',
+    # Plotly sequential
+    'Plotly', 'Viridis', 'Plasma', 'Inferno', 'Magma', 'Cividis',
+    # Plotly diverging
+    'RdBu', 'RdYlGn', 'RdYlBu', 'Spectral', 'Portland', 'Jet', 'Turbo',
+    'Blackbody', 'Earth', 'Electric', 'Viridis_r', 'Cividis_r', 'Rainbow',
+    'Rainbow_r', 'Spectral_r', 'Jet_r', 'Hot', 'Cool', 'Spring', 'Summer',
+    'Autumn', 'Winter', 'Greys', 'YlGnBu', 'Greens', 'YlOrRd', 'Bluered',
+    'RdBu_r', 'Reds', 'Blues', 'Picnic', 'Rainbow_r', 'Earth_r', 'Portland_r',
+    'Jet_r', 'Hot_r', 'Blackbody_r', 'Turbo_r',
+    # Custom/extended
+    'Matter', 'Ice', 'Solar', 'Dense', 'Algae', 'Amp', 'Deep', 'Balance',
+    'Curl', 'Diff', 'Delta', 'Speed', 'Turbid', 'Phase', 'Spectrum',
+    'Matter_r', 'Ice_r', 'Solar_r', 'Dense_r', 'Algae_r', 'Amp_r', 'Deep_r',
+    'Balance_r', 'Curl_r', 'Diff_r', 'Delta_r', 'Speed_r', 'Turbid_r', 'Phase_r',
 ]
 
+# Color palettes for different plot types
 COLOR_PALETTES = {
     'default': ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe'],
     'nature': ['#2ecc71', '#27ae60', '#16a085', '#1abc9c', '#3498db', '#2980b9'],
@@ -329,6 +355,7 @@ st.set_page_config(
         'About': """
         # DFT Sn Anode Lithiation Analyzer
         Integrated thermodynamic, structural, and mechanical analysis for battery materials.
+        **Publication-Ready Figures** with customizable fonts, linewidths, colormaps, and export options.
         **Version**: 2.1.0 (CIF Export + Enhanced Visualization + Optimized Phase 1)
         **License**: MIT
         """
@@ -426,6 +453,12 @@ th { background: #f8f9fa; font-weight: 600; }
     color: white !important;
     border: none !important;
 }
+.structure-card {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin: 0.5rem 0;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -448,6 +481,8 @@ st.markdown("""
 - 🔬 **Enhanced Visualization**: Publication-quality 2D structure plots with Wyckoff position display
 - ⚡ **Optimized Phase 1**: 10-100× faster reference energy calculations with smart caching
 - 🎨 **Customizable Styling**: Full control over figure aesthetics for journal submission
+- 🌐 **Interactive 3D Viewer**: Optional nglview integration for rotatable atomic structures
+- 📦 **Bulk Export**: Download all structures as a single ZIP bundle
 """)
 
 # Display system info
@@ -473,6 +508,7 @@ with st.expander("🔧 System Information & Dependencies", expanded=False):
         **Accelerations**
         - Numba: {'✅' if NUMBA_AVAILABLE else '⚪'}
         - scikit-learn: {'✅' if SKLEARN_AVAILABLE else '⚪'}
+        - nglview: {'✅' if NGLVIEW_AVAILABLE else '⚪'}
         - Plotly: ✅ Interactive 3D
         - Matplotlib: ✅ Publication plots
         """)
@@ -514,6 +550,9 @@ def init_session_state():
         'export_format': 'PNG', 'export_transparent_bg': False,
         # Structure cache
         'cached_structures': {},
+        # CIF export settings
+        'cif_include_metadata': True, 'cif_include_wyckoff': True,
+        'cif_directory': './cif_exports',
     }
     for key, default_value in defaults.items():
         if key not in st.session_state:
@@ -661,6 +700,12 @@ with st.sidebar.expander("📤 Export Settings", expanded=True):
     st.session_state.export_format = st.radio("Vector Format", options=['PNG', 'SVG', 'PDF'], horizontal=True)
     st.session_state.export_transparent_bg = st.checkbox("Transparent Background", value=st.session_state.export_transparent_bg)
     st.info(f"Figures will export at {st.session_state.pub_dpi} DPI in {st.session_state.export_format} format")
+
+# CIF export settings
+with st.sidebar.expander("📦 CIF Export Settings", expanded=True):
+    st.session_state.cif_include_metadata = st.checkbox("Include Metadata Header", value=True)
+    st.session_state.cif_include_wyckoff = st.checkbox("Include Wyckoff Positions", value=True)
+    st.session_state.cif_directory = st.text_input("Export Directory", value="./cif_exports")
 
 # ============================================================================
 # HELPER FUNCTIONS & UTILITIES
@@ -1828,8 +1873,8 @@ def plot_stress_plotly_3d_safe(stress_data, title="Interactive 3D Stress Distrib
             raise ValueError("stress_data is None")
         required_keys = ["x", "y", "z", "stress", "c11", "c33"]
         for key in required_keys:
-            if key not in stress_data:
-                raise ValueError(f"Missing required key in stress_data: {key}")
+            if key not in stress_
+                raise ValueError(f"Missing required key in stress_ {key}")
         
         x, y, z = stress_data["x"], stress_data["y"], stress_data["z"]
         stress = stress_data["stress"]
@@ -1917,6 +1962,7 @@ def get_figure_base64(fig, format_type='PNG'):
 # ============================================================================
 def render_structure_visualization_section():
     """Render interactive structure visualization and CIF export controls."""
+    
     st.subheader("🔬 Crystal Structure Visualization & Export")
     
     # Wyckoff position information expander
@@ -1930,7 +1976,8 @@ def render_structure_visualization_section():
             - **Space Group**: {sn_wyck['spacegroup']}
             - **Pearson Symbol**: {sn_wyck['pearson']}
             - **Atoms/Cell**: 4 Sn
-            - **Wyckoff Site**: Sn @ 4a: `(0, 0, 0)` + symmetry equivalents
+            - **Wyckoff Site**: 
+              - Sn @ 4a: `(0, 0, 0)` + symmetry equivalents
             """)
             st.info("Body-centered tetragonal structure with 4-fold symmetry axis along c")
         
@@ -1975,23 +2022,33 @@ def render_structure_visualization_section():
                                     options=['90x,45y,0z', '90x,30y,0z', '60x,45y,45z', '0x,0y,0z'],
                                     index=0)
     with viz_col3:
-        color_mode = st.radio("Color Scheme", options=['publication', 'default'], index=0, horizontal=True)
+        color_mode = st.radio("Color Scheme", options=['publication', 'default'], index=0,
+                            horizontal=True)
     
     # Structure selection and display
     struct_tabs = st.tabs(["🔹 β-Sn (BCT)", "🔹 Li₂Sn₅", "🔹 Li (BCC)", "🔹 Comparison"])
     
+    # Store created structures in session state for reuse
     if 'cached_structures' not in st.session_state:
         st.session_state.cached_structures = {}
     
     with struct_tabs[0]:  # β-Sn tab
         st.markdown("### β-Sn (Body-Centered Tetragonal)")
         
+        # Create or retrieve structure
         if 'sn_struct' not in st.session_state.cached_structures:
             sn_atoms = create_sn_bct_manual(a=5.83, c=3.18)
+            sn_atoms.info.update({
+                'name': 'beta-Sn',
+                'spacegroup': 'I4_1/amd (141)',
+                'Z': 4,
+                'wyckoff_data': generate_wyckoff_display('beta-Sn')['positions']
+            })
             st.session_state.cached_structures['sn_struct'] = sn_atoms
         else:
             sn_atoms = st.session_state.cached_structures['sn_struct']
         
+        # Display 2D plot
         fig_sn, ax_sn = plt.subplots(figsize=(7, 6))
         plot_structure_2d(sn_atoms, title="β-Sn Structure", 
                          repeat=(repeat_factor, repeat_factor, 1),
@@ -1999,6 +2056,7 @@ def render_structure_visualization_section():
         st.pyplot(fig_sn, bbox_inches='tight')
         plt.close(fig_sn)
         
+        # Structure info cards
         info_col1, info_col2, info_col3 = st.columns(3)
         with info_col1:
             st.metric("Lattice a", f"{sn_atoms.get_cell_lengths_and_angles()[0]:.3f} Å")
@@ -2007,19 +2065,29 @@ def render_structure_visualization_section():
         with info_col3:
             st.metric("Volume", f"{sn_atoms.get_volume():.2f} Å³")
         
+        # CIF Export buttons
         st.markdown("#### 💾 Export Options")
         exp_col1, exp_col2 = st.columns(2)
         
         with exp_col1:
+            # Direct download (no server file I/O)
             cif_bytes, cif_filename = create_downloadable_cif(sn_atoms, "beta_Sn")
             st.download_button(
-                label="📥 Download β-Sn CIF (Direct)", data=cif_bytes, file_name=cif_filename,
-                mime="chemical/x-cif", use_container_width=True
+                label="📥 Download β-Sn CIF (Direct)",
+                data=cif_bytes,
+                file_name=cif_filename,
+                mime="chemical/x-cif",
+                use_container_width=True
             )
         
         with exp_col2:
+            # Save to server directory (for advanced users)
             if st.button("💾 Save β-Sn CIF to Server", use_container_width=True):
-                filepath = export_structure_to_cif(sn_atoms, filename_prefix="beta_Sn", directory="./cif_exports")
+                filepath = export_structure_to_cif(
+                    sn_atoms, 
+                    filename_prefix="beta_Sn",
+                    directory=st.session_state.cif_directory
+                )
                 st.code(f"Saved to: {filepath}", language="bash")
     
     with struct_tabs[1]:  # Li₂Sn₅ tab
@@ -2027,36 +2095,58 @@ def render_structure_visualization_section():
         
         if 'li2sn5_struct' not in st.session_state.cached_structures:
             li_atoms = create_li2sn5_manual(a=10.35, c=3.15)
+            li_atoms.info.update({
+                'name': 'Li2Sn5',
+                'spacegroup': 'P4/mbm (127)',
+                'formula': 'Li4Sn10',
+                'Z': 2,  # 2 formula units per conventional cell
+                'wyckoff_data': generate_wyckoff_display('Li2Sn5')['positions']
+            })
             st.session_state.cached_structures['li2sn5_struct'] = li_atoms
         else:
             li_atoms = st.session_state.cached_structures['li2sn5_struct']
         
+        # Display 2D plot - repeat along c to show layering
         fig_li, ax_li = plt.subplots(figsize=(7, 6))
         plot_structure_2d(li_atoms, title="Li₂Sn₅ Structure", 
-                         repeat=(1, 1, repeat_factor), rotation=view_rotation, ax=ax_li, color_scheme=color_mode)
+                         repeat=(1, 1, repeat_factor),  # Emphasize c-axis layering
+                         rotation=view_rotation, ax=ax_li, color_scheme=color_mode)
         st.pyplot(fig_li, bbox_inches='tight')
         plt.close(fig_li)
         
+        # Structure info
         info_col1, info_col2, info_col3, info_col4 = st.columns(4)
         lengths = li_atoms.get_cell_lengths_and_angles()
-        with info_col1: st.metric("Lattice a", f"{lengths[0]:.3f} Å")
-        with info_col2: st.metric("Lattice c", f"{lengths[2]:.3f} Å")
-        with info_col3: st.metric("Volume", f"{li_atoms.get_volume():.2f} Å³")
-        with info_col4: st.metric("Atoms/Cell", f"{len(li_atoms)}")
+        with info_col1:
+            st.metric("Lattice a", f"{lengths[0]:.3f} Å")
+        with info_col2:
+            st.metric("Lattice c", f"{lengths[2]:.3f} Å")
+        with info_col3:
+            st.metric("Volume", f"{li_atoms.get_volume():.2f} Å³")
+        with info_col4:
+            st.metric("Atoms/Cell", f"{len(li_atoms)}")
         
+        # CIF Export
         st.markdown("#### 💾 Export Options")
         exp_col1, exp_col2 = st.columns(2)
         
         with exp_col1:
             cif_bytes, cif_filename = create_downloadable_cif(li_atoms, "Li2Sn5")
             st.download_button(
-                label="📥 Download Li₂Sn₅ CIF (Direct)", data=cif_bytes, file_name=cif_filename,
-                mime="chemical/x-cif", use_container_width=True
+                label="📥 Download Li₂Sn₅ CIF (Direct)",
+                data=cif_bytes,
+                file_name=cif_filename,
+                mime="chemical/x-cif",
+                use_container_width=True
             )
         
         with exp_col2:
             if st.button("💾 Save Li₂Sn₅ CIF to Server", use_container_width=True):
-                filepath = export_structure_to_cif(li_atoms, filename_prefix="Li2Sn5", directory="./cif_exports")
+                filepath = export_structure_to_cif(
+                    li_atoms,
+                    filename_prefix="Li2Sn5",
+                    directory=st.session_state.cif_directory
+                )
                 st.code(f"Saved to: {filepath}", language="bash")
     
     with struct_tabs[2]:  # Li tab
@@ -2086,18 +2176,22 @@ def render_structure_visualization_section():
         with exp_col1:
             cif_bytes, cif_filename = create_downloadable_cif(li_atoms, "Li_BCC")
             st.download_button(
-                label="📥 Download Li-BCC CIF (Direct)", data=cif_bytes, file_name=cif_filename,
-                mime="chemical/x-cif", use_container_width=True
+                label="📥 Download Li-BCC CIF (Direct)",
+                data=cif_bytes,
+                file_name=cif_filename,
+                mime="chemical/x-cif",
+                use_container_width=True
             )
         
         with exp_col2:
             if st.button("💾 Save Li-BCC CIF to Server", use_container_width=True):
-                filepath = export_structure_to_cif(li_atoms, filename_prefix="Li_BCC", directory="./cif_exports")
+                filepath = export_structure_to_cif(li_atoms, filename_prefix="Li_BCC", directory=st.session_state.cif_directory)
                 st.code(f"Saved to: {filepath}", language="bash")
     
     with struct_tabs[3]:  # Comparison tab
         st.markdown("### 🔍 Side-by-Side Structural Comparison")
         
+        # Ensure all structures exist
         if 'sn_struct' not in st.session_state.cached_structures:
             st.session_state.cached_structures['sn_struct'] = create_sn_bct_manual(a=5.83, c=3.18)
         if 'li2sn5_struct' not in st.session_state.cached_structures:
@@ -2109,17 +2203,22 @@ def render_structure_visualization_section():
         li_atoms = st.session_state.cached_structures['li2sn5_struct']
         li_ref = st.session_state.cached_structures['li_struct']
         
+        # Side-by-side plots
         fig_comp, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))
         
-        plot_structure_2d(sn_atoms, title="β-Sn", repeat=(2,2,1), rotation=view_rotation, ax=ax1, color_scheme=color_mode)
-        plot_structure_2d(li_atoms, title="Li₂Sn₅", repeat=(1,1,2), rotation=view_rotation, ax=ax2, color_scheme=color_mode)
-        plot_structure_2d(li_ref, title="Li-BCC", repeat=(2,2,2), rotation=view_rotation, ax=ax3, color_scheme=color_mode)
+        plot_structure_2d(sn_atoms, title="β-Sn", repeat=(2,2,1), 
+                         rotation=view_rotation, ax=ax1, color_scheme=color_mode)
+        plot_structure_2d(li_atoms, title="Li₂Sn₅", repeat=(1,1,2),
+                         rotation=view_rotation, ax=ax2, color_scheme=color_mode)
+        plot_structure_2d(li_ref, title="Li-BCC", repeat=(2,2,2),
+                         rotation=view_rotation, ax=ax3, color_scheme=color_mode)
         
         plt.tight_layout()
         st.pyplot(fig_comp, bbox_inches='tight')
         plt.close(fig_comp)
         
-        st.markdown("#### 📊 Key Structural Parameters")
+        # Key differences summary
+        st.markdown("#### 📊 Key Structural Differences")
         diff_data = {
             'Property': ['Volume per Sn atom', 'c-axis length', 'Symmetry', 'Li content'],
             'β-Sn': [f"{sn_atoms.get_volume()/4:.2f} Å³", 
@@ -2136,18 +2235,21 @@ def render_structure_visualization_section():
         
         # Bulk export all structures
         if st.button("📦 Export All Structures as CIF Bundle"):
-            import zipfile
-            from io import BytesIO
-            
             zip_buffer = BytesIO()
             with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+                # Add β-Sn CIF
                 sn_cif, sn_name = create_downloadable_cif(sn_atoms, "beta_Sn", include_metadata=True)
                 zip_file.writestr(sn_name, sn_cif)
+                
+                # Add Li₂Sn₅ CIF
                 li_cif, li_name = create_downloadable_cif(li_atoms, "Li2Sn5", include_metadata=True)
                 zip_file.writestr(li_name, li_cif)
+                
+                # Add Li-BCC CIF
                 li_ref_cif, li_ref_name = create_downloadable_cif(li_ref, "Li_BCC", include_metadata=True)
                 zip_file.writestr(li_ref_name, li_ref_cif)
                 
+                # Add README
                 readme = f"""Sn-Li2Sn5 Structure Bundle
 Generated: {datetime.now().isoformat()}
 App Version: 2.1.0
@@ -2165,18 +2267,23 @@ Note: Li₂Sn₅ conventional cell contains Li₄Sn₁₀ = 2×Li₂Sn₅ formul
             
             zip_buffer.seek(0)
             st.download_button(
-                label="⬇️ Download Structure Bundle (ZIP)", data=zip_buffer.getvalue(),
+                label="⬇️ Download Structure Bundle (ZIP)",
+                data=zip_buffer.getvalue(),
                 file_name=f"Sn_Li2Sn5_structures_{datetime.now().strftime('%Y%m%d')}.zip",
-                mime="application/zip", use_container_width=True
+                mime="application/zip",
+                use_container_width=True
             )
     
     # Optional: 3D interactive viewer (if nglview available)
     with st.expander("🌐 Interactive 3D Viewer (nglview)", expanded=False):
         if st.button("Load Interactive 3D Viewer"):
             try:
-                import nglview as nv
+                if not NGLVIEW_AVAILABLE:
+                    raise ImportError("nglview not installed")
+                
                 from IPython.display import HTML
                 
+                # Structure selector
                 struct_3d = st.radio("Select Structure for 3D View", 
                                    options=['β-Sn', 'Li₂Sn₅', 'Li-BCC'], index=1)
                 
@@ -2190,11 +2297,14 @@ Note: Li₂Sn₅ conventional cell contains Li₄Sn₁₀ = 2×Li₂Sn₅ formul
                     atoms_3d = st.session_state.cached_structures['li_struct']
                     repeat = (2, 2, 2)
                 
-                view = nv.show_ase(atoms_3d.repeat(repeat))
+                # Create nglview widget
+                view = nglview.show_ase(atoms_3d.repeat(repeat))
                 view.add_unitcell()
                 view.add_ball_and_stick()
                 
+                # Display in Streamlit
                 st.components.v1.html(view._repr_html_(), height=500, scrolling=True)
+                
                 st.info("💡 Tip: Drag to rotate, scroll to zoom, double-click atom for info")
                 
             except ImportError:
@@ -3014,7 +3124,7 @@ with st.expander("❓ Help & Frequently Asked Questions", expanded=False):
     A: Use the "Crystal Structure Visualization & Export" section in Phase 2:
     - Click "📥 Download CIF (Direct)" for instant browser download
     - Or "💾 Save CIF to Server" to save to ./cif_exports directory
-    - CIF files include full metadata: lattice params, space group, Wyckoff positions, references
+    - CIF files include full meta lattice params, space group, Wyckoff positions, references
     
     **Q: How do I export publication-quality figures?**
     A: Use the "Publication Figure Settings" in the sidebar to customize:

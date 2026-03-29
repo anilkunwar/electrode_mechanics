@@ -2073,10 +2073,10 @@ def plot_stress_plotly_3d(stress_data, title="Interactive 3D Stress Distribution
         colorbar_config = dict(
             title=dict(
                 text="Stress (GPa·strain)",
-                font=dict(size=20, family="Times New Roman"),
+                font=dict(size=35, family="Times New Roman"),
                 side="right"
             ),
-            tickfont=dict(size=20, family="Times New Roman"),
+            tickfont=dict(size=30, family="Times New Roman"),
             thickness=30,
             len=0.8,
             xpad=10,
@@ -2121,27 +2121,27 @@ def plot_stress_plotly_3d(stress_data, title="Interactive 3D Stress Distribution
             xaxis=dict(
                 title=dict(
                     text="X",
-                    font=dict(size=25, family="Times New Roman")
+                    font=dict(size=20, family="Times New Roman")
                 ),
-                tickfont=dict(size=20, family="Times New Roman"),
+                tickfont=dict(size=15, family="Times New Roman"),
                 showbackground=True,
                 backgroundcolor="rgba(240,240,240,0.5)"
             ),
             yaxis=dict(
                 title=dict(
                     text="Y",
-                    font=dict(size=25, family="Times New Roman")
+                    font=dict(size=20, family="Times New Roman")
                 ),
-                tickfont=dict(size=20, family="Times New Roman"),
+                tickfont=dict(size=15, family="Times New Roman"),
                 showbackground=True,
                 backgroundcolor="rgba(240,240,240,0.5)"
             ),
             zaxis=dict(
                 title=dict(
                     text="Z (c-axis)",
-                    font=dict(size=25, family="Times New Roman")
+                    font=dict(size=20, family="Times New Roman")
                 ),
-                tickfont=dict(size=20, family="Times New Roman"),
+                tickfont=dict(size=15, family="Times New Roman"),
                 showbackground=True,
                 backgroundcolor="rgba(240,240,240,0.5)"
             ),

@@ -1200,32 +1200,53 @@ def create_li2sn5_manual(a=10.35, c=3.15):
 # ============================================================================
 # STRUCTURE VISUALIZATION & CIF EXPORT (WITH MOLSTAR SUPPORT)
 # ============================================================================
+#
 def atoms_to_cif_string(atoms):
     """
     Convert ASE Atoms object to CIF format string for streamlit-molstar.
     Returns a properly formatted CIF string with correct space group operations.
+    
+    🔧 FIXED: Uses BytesIO instead of StringIO (ASE CIF writer requires binary buffer)
     """
-    buffer = io.StringIO()
-    write(buffer, atoms, format='cif')
-    cif_string = buffer.getvalue()
-    buffer.close()
+    from ase.io import write
+    import io
     
-    # Ensure proper CIF formatting for molstar with correct space group
-    cell = atoms.get_cell()
-    lengths = atoms.get_cell_lengths_and_angles()
-    spacegroup = atoms.info.get('spacegroup', 'P 1')
-    sg_number = 1
-    if '141' in spacegroup:
-        sg_number = 141
-        sg_name = 'I 41/a m d'
-    elif '127' in spacegroup:
-        sg_number = 127
-        sg_name = 'P 4/m b m'
-    else:
-        sg_name = 'P 1'
+    # 🔧 CRITICAL FIX: Use BytesIO (binary) instead of StringIO (text)
+    # ASE's CIF writer calls .detach() which only exists on binary buffers
+    buffer = io.BytesIO()
     
-    # Build proper CIF header
-    cif_header = f"""# Generated from ASE Atoms - {datetime.now().isoformat()}
+    try:
+        # Write CIF to binary buffer using ASE's built-in writer
+        write(buffer, atoms, format='cif')
+        
+        # 🔧 Decode bytes to UTF-8 string for Streamlit compatibility
+        cif_bytes = buffer.getvalue()
+        cif_string = cif_bytes.decode('utf-8')
+        
+    except Exception as e:
+        # Fallback: manual CIF construction if ASE writer fails
+        log_message(f"ASE CIF writer failed: {e}, using manual construction", "warning")
+        
+        # Extract crystallographic data
+        cell = atoms.get_cell()
+        lengths = atoms.get_cell_lengths_and_angles()
+        symbols = atoms.get_chemical_symbols()
+        positions = atoms.get_scaled_positions()
+        
+        # Get space group info from atoms.info metadata
+        spacegroup = atoms.info.get('spacegroup', 'P 1')
+        sg_number = 1
+        if '141' in spacegroup:
+            sg_number = 141
+            sg_name = 'I 41/a m d'
+        elif '127' in spacegroup:
+            sg_number = 127
+            sg_name = 'P 4/m b m'
+        else:
+            sg_name = 'P 1'
+        
+        # Build proper CIF header
+        cif_header = f"""# Generated from ASE Atoms - {datetime.now().isoformat()}
 _data_{atoms.info.get('name', 'structure').replace(' ', '_').replace('₂', '2')}
 _cell_length_a    {lengths[0]:.6f}
 _cell_length_b    {lengths[1]:.6f}
@@ -1238,10 +1259,10 @@ _symmetry_int_tables_number      {sg_number}
 _space_group_name_H-M_alt    '{sg_name}'
 _space_group_IT_number       {sg_number}
 """
-    
-    # Add symmetry operations based on space group
-    if sg_number == 141:  # I4₁/amd
-        symops = """loop_
+        
+        # Add symmetry operations based on space group
+        if sg_number == 141:  # I4₁/amd (β-Sn)
+            symops = """loop_
 _space_group_symop_operation_xyz
 'x, y, z'
 '-x, -y, z'
@@ -1276,8 +1297,8 @@ _space_group_symop_operation_xyz
 'y, x, z+1/4'
 '-y, -x, z+1/4'
 """
-    elif sg_number == 127:  # P4/mbm
-        symops = """loop_
+        elif sg_number == 127:  # P4/mbm (Li₂Sn₅)
+            symops = """loop_
 _space_group_symop_operation_xyz
 'x, y, z'
 '-y, x, z'
@@ -1296,18 +1317,12 @@ _space_group_symop_operation_xyz
 'x+1/2, -y+1/2, z'
 'y+1/2, x+1/2, z'
 """
-    else:  # P1
-        symops = """loop_
+        else:  # P1 (fallback)
+            symops = """loop_
 _space_group_symop_operation_xyz
 'x, y, z'
 """
-    
-    # Extract atom loop from original CIF or build new one
-    if 'loop_' in cif_string and '_atom_site' in cif_string:
-        atom_loop = cif_string.split('loop_')[-1]
-        if '_atom_site_label' not in atom_loop:
-            atom_loop = cif_string.split('_atom_site')[0] + 'loop_\n_atom_site_label\n' + cif_string.split('loop_')[-1]
-    else:
+        
         # Build atom loop from ASE Atoms
         atom_loop = """loop_
 _atom_site_label
@@ -1317,12 +1332,17 @@ _atom_site_fract_y
 _atom_site_fract_z
 _atom_site_occupancy
 """
-        symbols = atoms.get_chemical_symbols()
-        positions = atoms.get_scaled_positions()
         for i, (sym, pos) in enumerate(zip(symbols, positions)):
             atom_loop += f"{sym}{i+1}  {sym}  {pos[0]:.5f}  {pos[1]:.5f}  {pos[2]:.5f}  1.0\n"
+        
+        # Assemble final CIF string
+        cif_string = cif_header + symops + atom_loop
     
-    return cif_header + symops + atom_loop
+    # Clean up buffer
+    buffer.close()
+    
+    return cif_string
+
 
 def show_structure_viewer(atoms, title="", height=500, use_molstar_first=True):
     """

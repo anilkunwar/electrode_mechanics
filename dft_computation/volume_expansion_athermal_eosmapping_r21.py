@@ -2437,7 +2437,7 @@ def plot_stress_plotly_3d_safe(stress_data, title="Interactive 3D Stress Distrib
             raise ValueError("stress_data is None")
         required_keys = ["x", "y", "z", "stress", "c11", "c33"]
         for key in required_keys:
-            if key not in stress_
+            if key not in stress_data:
                 raise ValueError(f"Missing required key in stress_ {key}")
         # Validate arrays
         x, y, z = stress_data["x"], stress_data["y"], stress_data["z"]

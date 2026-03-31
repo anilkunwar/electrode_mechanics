@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 """
-GPAW + ASE Integration Test - FIXED v2.1.0
+GPAW + ASE Integration Test - FIXED v2.2.0
 ====================================
-Simple Streamlit app to verify GPAW calculator is properly accessed by ASE
-Run with: streamlit run dft_calculation_test_r1.py
+Complete fix for calculator attachment and method detection issues
 
-VERSION 2.1.0 - CRITICAL FIXES:
-1. ✅ FIXED DummyCalculator - Now inherits from ASE Calculator base class
-2. ✅ FIXED calculate() method - Properly implements ASE interface requirements
-3. ✅ FIXED results storage - Uses self.results dict with exact required keys
-4. ✅ FIXED force/stress return types - np.ndarray with dtype=float64
-5. ✅ Added robust error handling for calculator attachment and optimization
-6. ✅ Added SAFE_FORCE_REAL_DFT option to prevent crashes on Streamlit Cloud
+VERSION 2.2.0 - CRITICAL FIXES:
+1. ✅ FIXED Calculator attachment persistence in session state
+2. ✅ FIXED Method detection - Proper inheritance from ASE Calculator
+3. ✅ FIXED atoms.calc reference - Now properly stored and retrieved
+4. ✅ FIXED Session state handling for calculator objects
+5. ✅ Added atoms.copy() fix to preserve calculator attachment
 """
 
 # ============================================================================
@@ -45,7 +43,7 @@ st.set_page_config(
 )
 
 st.title("🔬 GPAW + ASE Integration Test")
-st.markdown("**This app verifies GPAW calculator is properly accessed by ASE**")
+st.markdown("**Complete fix for calculator attachment and method detection**")
 
 # ============================================================================
 # GPAW IMPORT WITH ERROR HANDLING
@@ -67,64 +65,40 @@ except ImportError as e:
     st.info("Install with: `pip install gpaw` or `conda install -c conda-forge gpaw`")
 
 # ============================================================================
-# 🔧🔧🔧 FIXED v2.1.0: DummyCalculator with ASE Calculator base class
-# This is the CRITICAL FIX for the AttributeError during BFGS optimization
+# 🔧🔧🔧 FIXED v2.2.0: DummyCalculator with proper ASE inheritance
 # ============================================================================
 class DummyCalculator(Calculator):
     """
-    Dummy calculator for demo mode that properly implements ASE Calculator interface.
-    
-    🔧🔧🔧 FIXED v2.1.0:
-    - Inherits from ASE Calculator base class for full API compatibility
-    - Implements calculate() method as required by ASE
-    - Handles all calculator calls correctly (get_forces, get_potential_energy, get_stress)
-    - Works with BFGS optimizer and all ASE dynamics
-    - Returns properly typed numpy arrays (dtype=float64)
+    Dummy calculator that properly implements ASE Calculator interface.
+    CRITICAL: Must inherit from ASE Calculator base class.
     """
     
     implemented_properties = ['energy', 'forces', 'stress', 'free_energy']
     
     def __init__(self, atoms=None, ecut=350, xc='PBE', kpts=(4,4,4), **kwargs):
-        """
-        Initialize DummyCalculator.
-        
-        Parameters:
-        -----------
-        atoms : ASE Atoms object, optional
-            Atoms to attach to calculator
-        ecut : float
-            Dummy cutoff energy (for compatibility)
-        xc : str
-            Dummy exchange-correlation functional (for compatibility)
-        kpts : tuple
-            Dummy k-point grid (for compatibility)
-        """
+        """Initialize DummyCalculator with all required attributes."""
+        # 🔧 CRITICAL: Call parent Calculator __init__ first
         super().__init__(**kwargs)
+        
+        # Store all parameters as instance attributes
         self.atoms = atoms
-        self.results = {}
         self.ecut = ecut
         self.xc = xc
         self.kpts = kpts
         
+        # 🔧 CRITICAL: Initialize results dictionary
+        self.results = {}
+        
     def calculate(self, atoms=None, properties=['energy'], 
                   system_changes=all_changes):
         """
-        Perform the calculation. This is the REQUIRED method for ASE Calculator.
-        
-        Parameters:
-        -----------
-        atoms : ASE Atoms object, optional
-            Atoms to calculate. If None, uses self.atoms
-        properties : list of str
-            Properties to calculate (e.g., ['energy', 'forces', 'stress'])
-        system_changes : list of str
-            What has changed since last calculation
-            
-        Returns:
-        --------
-        None (results stored in self.results)
+        REQUIRED method for ASE Calculator interface.
+        This is called by ASE whenever energy/forces/stress are needed.
         """
-        # ASE handles atoms attachment automatically
+        # 🔧 CRITICAL: Call parent calculate first (handles atoms attachment)
+        super().calculate(atoms, properties, system_changes)
+        
+        # If atoms provided, update internal reference
         if atoms is not None:
             self.atoms = atoms.copy()
         
@@ -151,35 +125,51 @@ class DummyCalculator(Calculator):
             
         energy = n_sn * e_sn_ref + n_li * e_li_ref + vol_term
         
-        # 🔧🔧🔧 CRITICAL: Store results in self.results with EXACT keys
-        # ASE optimizers look for these specific keys
+        # 🔧 CRITICAL: Store results in self.results with EXACT keys ASE expects
         self.results['energy'] = float(energy)
         self.results['free_energy'] = float(energy)
         
         # Forces: zero array with proper shape (N,3) and dtype=float64
-        # BFGS optimizer requires this to decide atom movements
         self.results['forces'] = np.zeros((n_atoms, 3), dtype=np.float64)
         
-        # Stress: 6-element Voigt array [xx, yy, zz, yz, xz, xy] with dtype=float64
-        # Required for cell relaxation
+        # Stress: 6-element Voigt array with dtype=float64
         self.results['stress'] = np.zeros(6, dtype=np.float64)
         
-        # Log for debugging if enabled
-        if st.session_state.get('enable_detailed_logging', False):
-            st.info(f"DummyCalculator: E={energy:.3f} eV for {n_sn}Sn+{n_li}Li")
+        return self.results
+    
+    # 🔧 CRITICAL: Implement get methods that ASE calls
+    def get_potential_energy(self, atoms=None):
+        """Return potential energy - called by atoms.get_potential_energy()"""
+        if atoms is not None:
+            self.atoms = atoms
+        if 'energy' not in self.results or self.atoms is None:
+            self.calculate(self.atoms)
+        return self.results.get('energy', 0.0)
+    
+    def get_forces(self, atoms=None):
+        """Return forces - called by atoms.get_forces()"""
+        if atoms is not None:
+            self.atoms = atoms
+        if 'forces' not in self.results or self.atoms is None:
+            self.calculate(self.atoms)
+        return self.results.get('forces', np.zeros((len(self.atoms or []), 3), dtype=np.float64))
+    
+    def get_stress(self, atoms=None):
+        """Return stress - called by atoms.get_stress()"""
+        if atoms is not None:
+            self.atoms = atoms
+        if 'stress' not in self.results or self.atoms is None:
+            self.calculate(self.atoms)
+        return self.results.get('stress', np.zeros(6, dtype=np.float64))
 
 # ============================================================================
 # GPAW Stub Class (for when GPAW is not available)
 # ============================================================================
 class GPAW_Stub:
-    """
-    Stub GPAW calculator for testing when real GPAW is not available.
-    🔧 FIXED: All required attributes properly initialized
-    """
+    """Stub GPAW calculator for testing when real GPAW is not available."""
     
     def __init__(self, mode=None, xc='PBE', kpts=None, txt=None, convergence=None,
                  maxiter=200, occupations=None, **kwargs):
-        # 🔧 CRITICAL: Store ALL attributes that might be accessed later
         self.mode = mode
         self.xc = xc
         self.kpts = kpts
@@ -201,19 +191,23 @@ class GPAW_Stub:
         self.atoms = atoms
         atoms.calc = self
     
-    def get_potential_energy(self):
+    def get_potential_energy(self, atoms=None):
         """Return dummy energy"""
+        if atoms is not None:
+            self.atoms = atoms
         if self.atoms is not None:
             return -len(self.atoms) * 3.0
         return 0.0
     
-    def get_forces(self):
+    def get_forces(self, atoms=None):
         """Return zero forces with proper dtype"""
+        if atoms is not None:
+            self.atoms = atoms
         if self.atoms is not None:
             return np.zeros((len(self.atoms), 3), dtype=np.float64)
         return np.array([], dtype=np.float64).reshape(0, 3)
     
-    def get_stress(self):
+    def get_stress(self, atoms=None):
         """Return zero stress with proper dtype"""
         return np.zeros(6, dtype=np.float64)
 
@@ -252,7 +246,8 @@ def init_session_state():
         'calc': None,
         'enable_detailed_logging': False,
         'last_error': None,
-        'SAFE_FORCE_REAL_DFT': True,  # Prevent crashes on Streamlit Cloud
+        'SAFE_FORCE_REAL_DFT': True,
+        'calc_params': None,  # Store calculator parameters instead of object
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -265,11 +260,10 @@ init_session_state()
 # ============================================================================
 st.sidebar.header("⚙️ Test Settings")
 
-# 🔧🔧🔧 SAFE_FORCE_REAL_DFT option - prevents crashes on Streamlit Cloud
 st.session_state['SAFE_FORCE_REAL_DFT'] = st.sidebar.checkbox(
     "🛡️ Safe Mode: Use Dummy Calculator",
     value=not GPAW_AVAILABLE,
-    help="When enabled, always use DummyCalculator to prevent crashes on Streamlit Cloud. Disable only if you have real GPAW installed locally."
+    help="When enabled, always use DummyCalculator to prevent crashes."
 )
 
 st.session_state['enable_detailed_logging'] = st.sidebar.checkbox(
@@ -279,9 +273,9 @@ st.session_state['enable_detailed_logging'] = st.sidebar.checkbox(
 )
 
 if st.sidebar.button("🔄 Reset Session", use_container_width=True):
-    for key in ['test_atoms', 'calc_attached', 'calc', 'last_error']:
+    for key in ['test_atoms', 'calc_attached', 'calc', 'last_error', 'calc_params']:
         if key in st.session_state:
-            st.session_state[key] = None if key != 'enable_detailed_logging' else False
+            st.session_state[key] = None if key not in ['enable_detailed_logging', 'SAFE_FORCE_REAL_DFT'] else False
     st.rerun()
 
 # ============================================================================
@@ -346,7 +340,7 @@ st.json({
 })
 
 # ============================================================================
-# CALCULATOR ATTACHMENT TEST
+# CALCULATOR ATTACHMENT TEST - FIXED v2.2.0
 # ============================================================================
 st.header("3️⃣ Calculator Attachment Test")
 
@@ -357,12 +351,14 @@ if st.button("🔧 Attach Calculator to Atoms", use_container_width=True):
             st.error("❌ No atoms created yet. Please create a structure first.")
             st.stop()
         
-        # 🔧🔧🔧 Use DummyCalculator if SAFE_FORCE_REAL_DFT is enabled or GPAW unavailable
+        # 🔧🔧🔧 FIXED: Create fresh calculator instance each time
         if not GPAW_AVAILABLE or st.session_state['SAFE_FORCE_REAL_DFT']:
             if not GPAW_AVAILABLE:
                 st.warning("⚠️ GPAW not available - using DummyCalculator")
             else:
                 st.info("ℹ️ Safe Mode enabled - using DummyCalculator")
+            
+            # Create fresh calculator
             calc = DummyCalculator(
                 atoms=atoms,
                 ecut=ecut,
@@ -370,7 +366,7 @@ if st.button("🔧 Attach Calculator to Atoms", use_container_width=True):
                 kpts=kpts
             )
         else:
-            # Use real GPAW (only if available and Safe Mode disabled)
+            # Use real GPAW
             calc = GPAW(
                 mode=PW(ecut),
                 xc=xc,
@@ -381,51 +377,40 @@ if st.button("🔧 Attach Calculator to Atoms", use_container_width=True):
                 occupations={'name': 'fermi-dirac', 'width': 0.1}
             )
         
-        # 🔧🔧🔧 CRITICAL: Attach calculator BEFORE any optimization calls
+        # 🔧🔧🔧 CRITICAL: Attach calculator to atoms
         atoms.calc = calc
+        
+        # 🔧🔧🔧 CRITICAL: Store both atoms and calc in session state
+        st.session_state['test_atoms'] = atoms
+        st.session_state['calc'] = calc
+        st.session_state['calc_attached'] = True
+        st.session_state['calc_params'] = {
+            'ecut': ecut,
+            'xc': xc,
+            'kpts': kpts,
+            'type': 'DummyCalculator' if (not GPAW_AVAILABLE or st.session_state['SAFE_FORCE_REAL_DFT']) else 'GPAW'
+        }
         
         st.success("✅ Calculator successfully attached to Atoms object!")
         st.info(f"Calculator type: {type(atoms.calc).__name__}")
         
-        # Verify calculator properties with safe attribute checking
-        st.markdown("### Calculator Properties:")
-        calc_properties = {}
-        calc_properties['has_atoms'] = hasattr(atoms.calc, 'atoms') and atoms.calc.atoms is not None
+        # Verify calculator attachment
+        st.markdown("### Verification:")
         
-        if hasattr(atoms.calc, 'xc'):
-            calc_properties['xc_functional'] = atoms.calc.xc
-        else:
-            calc_properties['xc_functional'] = 'N/A'
+        # Check if atoms has calculator
+        has_calc = hasattr(atoms, 'calc') and atoms.calc is not None
+        st.write(f"atoms.calc attached: {has_calc}")
         
-        if hasattr(atoms.calc, 'kpts'):
-            calc_properties['kpts'] = str(atoms.calc.kpts)
-        else:
-            calc_properties['kpts'] = 'N/A'
+        if has_calc:
+            # Check for required methods
+            methods = ['get_potential_energy', 'get_forces', 'get_stress', 'calculate']
+            for method in methods:
+                has_method = hasattr(atoms.calc, method)
+                if has_method:
+                    st.success(f"✅ {method}: Available")
+                else:
+                    st.error(f"❌ {method}: Missing")
         
-        if hasattr(atoms.calc, 'ecut'):
-            calc_properties['ecut'] = f"{atoms.calc.ecut} eV"
-        elif hasattr(atoms.calc, 'mode') and hasattr(atoms.calc.mode, 'ecut'):
-            calc_properties['ecut'] = f"{atoms.calc.mode.ecut} eV"
-        else:
-            calc_properties['ecut'] = 'N/A'
-        
-        st.json(calc_properties)
-        
-        # Save calculator state to session
-        st.session_state['calc_attached'] = True
-        st.session_state['calc'] = calc
-        
-    except AttributeError as e:
-        st.error(f"❌ AttributeError: {e}")
-        st.markdown("**This indicates the calculator is not properly initialized**")
-        st.info("Common causes:")
-        st.markdown("""
-        1. Calculator missing required attributes (xc, kpts, etc.)
-        2. Calculator not fully initialized before attachment
-        3. Attribute accessed before being set
-        """)
-        st.exception(e)
-        st.session_state['last_error'] = str(e)
     except Exception as e:
         st.error(f"❌ Failed to attach calculator: {e}")
         st.exception(e)
@@ -433,27 +418,28 @@ if st.button("🔧 Attach Calculator to Atoms", use_container_width=True):
         st.session_state['last_error'] = str(e)
 
 # ============================================================================
-# ENERGY & FORCES CALCULATION TEST
+# ENERGY & FORCES CALCULATION TEST - FIXED v2.2.0
 # ============================================================================
 st.header("4️⃣ Energy & Forces Calculation Test")
 
 if st.session_state.get('calc_attached', False):
     if st.button("⚡ Calculate Energy & Forces", use_container_width=True):
         try:
-            atoms = st.session_state['test_atoms']
+            # 🔧🔧🔧 FIXED: Get atoms from session state (which has calc attached)
+            atoms = st.session_state.get('test_atoms')
+            
+            if atoms is None:
+                st.error("❌ No atoms in session state")
+                st.stop()
+            
+            # 🔧🔧🔧 CRITICAL: Check if calculator is still attached
+            if not hasattr(atoms, 'calc') or atoms.calc is None:
+                st.error("❌ Calculator not attached to atoms!")
+                st.info("Please re-run Step 3: Attach Calculator")
+                st.stop()
             
             with st.spinner("Running calculation..."):
-                # Test 1: Check if calculator has required methods
-                st.markdown("### Method Availability Check:")
-                methods_to_check = ['get_potential_energy', 'get_forces', 'get_stress', 'calculate']
-                for method in methods_to_check:
-                    has_method = hasattr(atoms.calc, method)
-                    if has_method:
-                        st.success(f"✅ {method}: Available")
-                    else:
-                        st.error(f"❌ {method}: Missing")
-                
-                # Test 2: Calculate energy
+                # Test 1: Calculate energy
                 st.markdown("### Energy Calculation:")
                 energy = atoms.get_potential_energy()
                 col1, col2 = st.columns(2)
@@ -462,7 +448,7 @@ if st.session_state.get('calc_attached', False):
                 with col2:
                     st.metric("Energy per Atom", f"{energy/len(atoms):.6f} eV/atom")
                 
-                # Test 3: Calculate forces
+                # Test 2: Calculate forces
                 st.markdown("### Forces:")
                 forces = atoms.get_forces()
                 col1, col2 = st.columns(2)
@@ -477,7 +463,7 @@ if st.session_state.get('calc_attached', False):
                     df_forces.index = [f"Atom {i}" for i in range(len(forces))]
                     st.dataframe(df_forces, use_container_width=True)
                 
-                # Test 4: Calculate stress (if periodic)
+                # Test 3: Calculate stress (if periodic)
                 if atoms.pbc.any():
                     st.markdown("### Stress Tensor:")
                     stress = atoms.get_stress()
@@ -485,16 +471,27 @@ if st.session_state.get('calc_attached', False):
                     with col1:
                         st.code(f"Stress (eV/Å³):\n{stress}")
                     with col2:
-                        stress_gpa = stress * 160.217  # Convert to GPa
+                        stress_gpa = stress * 160.217
                         st.code(f"Stress (GPa):\n{stress_gpa}")
                 
-                st.success("✅ All calculator methods working correctly!")
+                st.success("✅ All calculations completed successfully!")
                 
-        except AttributeError as e:
-            st.error(f"❌ AttributeError: {e}")
-            st.markdown("**This indicates the calculator is not properly attached**")
-            st.info("Try: `atoms.calc = calc` before calling `atoms.get_potential_energy()`")
-            st.exception(e)
+        except RuntimeError as e:
+            if "no calculator" in str(e).lower():
+                st.error(f"❌ RuntimeError: {e}")
+                st.markdown("""
+                **This error means the calculator is not attached!**
+                
+                The atoms object lost its calculator reference. This can happen when:
+                1. atoms.copy() was called without preserving calc
+                2. Session state was reset
+                3. Calculator object was not serializable
+                
+                **Solution**: Re-run Step 3 to re-attach the calculator.
+                """)
+            else:
+                st.error(f"❌ RuntimeError: {e}")
+                st.exception(e)
             st.session_state['last_error'] = str(e)
         except Exception as e:
             st.error(f"❌ Calculation failed: {e}")
@@ -504,29 +501,44 @@ else:
     st.warning("⚠️ Please attach calculator first (Step 3)")
 
 # ============================================================================
-# BFGS OPTIMIZATION TEST (THE CRITICAL TEST)
+# BFGS OPTIMIZATION TEST - FIXED v2.2.0
 # ============================================================================
 st.header("5️⃣ BFGS Optimization Test")
-st.markdown("*This is the test that triggers the original error if DummyCalculator is not properly implemented*")
+st.markdown("*Complete implementation with proper calculator handling*")
 
 if st.session_state.get('calc_attached', False):
     col1, col2 = st.columns(2)
     with col1:
         max_steps = st.slider("Max optimization steps", 10, 200, 50, 10)
     with col2:
-        fmax_opt = st.slider("Force tolerance (eV/Å)", 0.001, 0.1, 0.05, 0.005)
+        fmax_opt = st.slider("Force tolerance (eV/Å)", 0.001, 0.1, 0.05, 0.005, key="fmax_opt")
     
     if st.button("🚀 Run BFGS Optimization", use_container_width=True, key="btn_bfgs"):
         try:
-            atoms = st.session_state['test_atoms'].copy()
-            atoms.calc = st.session_state['calc']
+            # 🔧🔧🔧 FIXED: Get atoms from session state
+            atoms = st.session_state.get('test_atoms')
             
-            with st.spinner(f"Running BFGS optimization (fmax={fmax_opt} eV/Å, max_steps={max_steps})..."):
+            if atoms is None:
+                st.error("❌ No atoms in session state")
+                st.stop()
+            
+            # 🔧🔧🔧 CRITICAL: Check calculator attachment
+            if not hasattr(atoms, 'calc') or atoms.calc is None:
+                st.error("❌ Calculator not attached!")
+                st.info("Please re-run Step 3: Attach Calculator")
+                st.stop()
+            
+            # 🔧🔧🔧 FIXED: Create a fresh copy with calculator preserved
+            # Use atoms.copy() which should preserve calc, but verify
+            atoms_opt = atoms.copy()
+            if atoms_opt.calc is None and atoms.calc is not None:
+                atoms_opt.calc = atoms.calc
+            
+            with st.spinner(f"Running BFGS optimization..."):
                 start_time = datetime.now()
                 
-                # 🔧🔧🔧 This is where the original error occurred
-                # With the fixed DummyCalculator, this should now work
-                opt = BFGS(atoms, logfile=None)
+                # Run BFGS optimization
+                opt = BFGS(atoms_opt, logfile=None)
                 converged = opt.run(fmax=fmax_opt, steps=max_steps)
                 
                 elapsed = (datetime.now() - start_time).total_seconds()
@@ -534,36 +546,26 @@ if st.session_state.get('calc_attached', False):
                 if converged:
                     st.success(f"✅ Optimization converged in {format_time(elapsed)}!")
                 else:
-                    st.warning(f"⚠️ Optimization did not fully converge (reached max steps) in {format_time(elapsed)}")
+                    st.warning(f"⚠️ Optimization reached max steps in {format_time(elapsed)}")
                 
                 # Show results
                 st.markdown("### Optimization Results:")
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("Final Energy", f"{atoms.get_potential_energy():.6f} eV")
+                    st.metric("Final Energy", f"{atoms_opt.get_potential_energy():.6f} eV")
                 with col2:
-                    forces = atoms.get_forces()
+                    forces = atoms_opt.get_forces()
                     st.metric("Max Final Force", f"{np.abs(forces).max():.6f} eV/Å")
                 with col3:
-                    st.metric("Cell Volume", f"{atoms.get_volume():.2f} Å³")
+                    st.metric("Cell Volume", f"{atoms_opt.get_volume():.2f} Å³")
                 
                 # Show atomic positions
                 with st.expander("View final atomic positions"):
-                    st.code(f"Positions:\n{atoms.get_positions()}")
+                    st.code(f"Positions:\n{atoms_opt.get_positions()}")
                 
-        except AttributeError as e:
-            st.error(f"❌ AttributeError during optimization: {e}")
-            st.markdown("""
-            **This is the error we're fixing!**
-            
-            If you see this, the DummyCalculator is not properly implementing
-            the ASE Calculator interface. Make sure:
-            1. It inherits from `ase.calculators.calculator.Calculator`
-            2. It implements the `calculate()` method
-            3. It stores results in `self.results` with keys: 'energy', 'forces', 'stress'
-            """)
-            st.exception(e)
-            st.session_state['last_error'] = str(e)
+                # Update session state with optimized structure
+                st.session_state['test_atoms'] = atoms_opt
+                
         except Exception as e:
             st.error(f"❌ Optimization failed: {e}")
             st.exception(e)
@@ -592,108 +594,16 @@ with col3:
     except:
         st.metric("ASE Version", "Unknown")
 
-# Display detailed version info
-with st.expander("📋 Detailed Version Information"):
-    st.markdown("### Python Packages:")
-    packages = {
-        'streamlit': 'streamlit',
-        'ase': 'ase',
-        'gpaw': 'gpaw',
-        'numpy': 'numpy',
-        'matplotlib': 'matplotlib',
-        'pandas': 'pandas'
-    }
-    for pkg_name, import_name in packages.items():
-        try:
-            pkg = __import__(import_name)
-            version = getattr(pkg, '__version__', 'Unknown')
-            st.success(f"✅ {pkg_name}: {version}")
-        except ImportError:
-            st.error(f"❌ {pkg_name}: Not installed")
-
-# ============================================================================
-# TROUBLESHOOTING GUIDE
-# ============================================================================
-st.header("🔧 Troubleshooting Guide")
-
-with st.expander("Common Issues & Solutions"):
-    st.markdown("""
-    ### Issue: `AttributeError: 'NoneType' object has no attribute 'get_forces'`
-    **Cause**: Calculator not attached to atoms before calling `atoms.get_forces()` or optimization
-    
-    **Solution**:
-    ```python
-    atoms.calc = calc  # ← Must do this BEFORE optimization or energy/force calls
-    opt = BFGS(atoms)
-    opt.run(fmax=0.05)
-    ```
-    
-    ### Issue: `AttributeError: 'DummyCalculator' object has no attribute 'xc'`
-    **Cause**: DummyCalculator missing required attributes
-    
-    **Solution**: Ensure all attributes are initialized in `__init__`:
-    ```python
-    def __init__(self, xc='PBE', ...):
-        self.xc = xc  # ← Must store this!
-    ```
-    
-    ### Issue: Optimizer fails with forces error
-    **Cause**: DummyCalculator doesn't implement ASE Calculator interface properly
-    
-    **Solution**: Inherit from ASE Calculator and implement calculate():
-    ```python
-    from ase.calculators.calculator import Calculator, all_changes
-    
-    class DummyCalculator(Calculator):
-        implemented_properties = ['energy', 'forces', 'stress']
-        
-        def calculate(self, atoms=None, properties=['energy'], system_changes=all_changes):
-            super().calculate(atoms, properties, system_changes)
-            # ... compute energy, forces, stress ...
-            self.results['energy'] = energy
-            self.results['forces'] = np.zeros((n_atoms, 3), dtype=np.float64)
-            self.results['stress'] = np.zeros(6, dtype=np.float64)
-    ```
-    
-    ### Issue: `ImportError: No module named 'gpaw'`
-    **Cause**: GPAW not installed
-    
-    **Solution**:
-    ```bash
-    pip install gpaw
-    # Or with conda:
-    conda install -c conda-forge gpaw
-    ```
-    
-    ### Issue: Streamlit Cloud timeout/crash
-    **Cause**: Real DFT calculations are too slow for cloud environments
-    
-    **Solution**: Enable "Safe Mode: Use Dummy Calculator" in sidebar
-    """)
-
-# ============================================================================
-# KEY TAKEAWAYS
-# ============================================================================
-st.header("📚 Key Takeaways")
-
-st.markdown("""
-### For the DummyCalculator to work with ASE optimizers:
-
-1. **Inherit from ASE Calculator**: `class DummyCalculator(Calculator)`
-2. **Declare implemented properties**: `implemented_properties = ['energy', 'forces', 'stress']`
-3. **Implement calculate() method**: This is the entry point ASE uses
-4. **Store results in self.results**: Use exact keys: 'energy', 'forces', 'stress', 'free_energy'
-5. **Return proper dtypes**: Forces must be `np.ndarray` with `dtype=np.float64`, shape `(N, 3)`
-6. **Attach calculator before use**: `atoms.calc = calc` BEFORE calling `atoms.get_forces()` or `opt.run()`
-
-### Why the original error occurred:
-
-The ASE BFGS optimizer calls `atoms.get_forces()`, which internally calls `calc.get_forces(atoms)`.
-If the calculator doesn't properly implement the ASE interface, this call fails with AttributeError.
-
-By inheriting from `ase.calculators.calculator.Calculator` and implementing `calculate()`,
-ASE's base class handles the method dispatch correctly, preventing the error.
-""")
+# Display session state info
+with st.expander("📋 Session State Debug"):
+    st.write("calc_attached:", st.session_state.get('calc_attached', False))
+    st.write("test_atoms exists:", st.session_state.get('test_atoms') is not None)
+    if st.session_state.get('test_atoms') is not None:
+        atoms = st.session_state['test_atoms']
+        st.write("atoms has calc:", hasattr(atoms, 'calc') and atoms.calc is not None)
+        if hasattr(atoms, 'calc') and atoms.calc is not None:
+            st.write("calc type:", type(atoms.calc).__name__)
+    st.write("calc_params:", st.session_state.get('calc_params'))
 
 # ============================================================================
 # FOOTER
@@ -702,17 +612,8 @@ st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #7f8c8d; font-size: 0.85rem; padding: 1rem 0;'>
 <strong>GPAW + ASE Integration Test</strong><br>
-Use this app to verify your DFT backend is working before running full analysis<br>
-<em>Version 2.1.0 - Fixed DummyCalculator with ASE Calculator base class</em><br>
+Complete fix for calculator attachment and method detection issues<br>
+<em>Version 2.2.0 - Fixed calculator persistence and method availability</em><br>
 Current Mode: {"🛡️ Safe Mode (Dummy Calculator)" if st.session_state['SAFE_FORCE_REAL_DFT'] or not GPAW_AVAILABLE else "🚀 Real GPAW Mode"}
 </div>
 """, unsafe_allow_html=True)
-
-# Display last error if logging enabled
-if st.session_state.get('last_error') and st.session_state.get('enable_detailed_logging', False):
-    with st.expander("🐛 Last Error Details (Debug)", expanded=False):
-        st.code(st.session_state['last_error'], language="text")
-        if st.button("Clear Error", key="clear_err"):
-            st.session_state['last_error'] = None
-            st.rerun()
-

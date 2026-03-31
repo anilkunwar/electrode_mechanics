@@ -1,4 +1,3 @@
-```python
 #!/usr/bin/env python3
 """
 GPAW + ASE Integration Test - FIXED v2.1.0
@@ -716,4 +715,4 @@ if st.session_state.get('last_error') and st.session_state.get('enable_detailed_
         if st.button("Clear Error", key="clear_err"):
             st.session_state['last_error'] = None
             st.rerun()
-```
+

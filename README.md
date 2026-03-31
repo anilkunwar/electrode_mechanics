@@ -88,6 +88,7 @@ Three Models
 
 
 # DFT Computation
+ The cloud version only run demo calculations, the dft computations has to be performed with the code in local computers
 
 Structural Optimization
 

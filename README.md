@@ -148,6 +148,14 @@ Volume Expansion During Lithiation (vc-relaxation method for speed, and EOS mapp
 
 [![atomisticmechanics](https://img.shields.io/badge/deltavolumer23-streamlit-red)](https://volume-expansion-athermal-eosmapping23.streamlit.app/ )  (athermal EOS mapping method,E-V mapping works and correct for both beta Sn and Li2Sn5,  plotly visualization works,  Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures, DFT calculation with GPAW, fast and robust, all phases robust, structural visualization is correct, phase stability calculation  complete)
 
+Correct Cijkl tensor in the stress and strain analysis
+[![atomisticmechanics](https://img.shields.io/badge/deltavolumer24-streamlit-red)](https://volume-expansion-athermal-eosmapping24.streamlit.app/ )  (r16 with Cijkl updated, athermal EOS mapping method, E-V mapping works and correct for both beta Sn and Li2Sn5 ,  plotly visualization works,  Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures, DFT calculation with GPAW, fast and robust, all phases except phase 1 robust )
+
+
+[![atomisticmechanics](https://img.shields.io/badge/deltavolumer25-streamlit-red)](https://volume-expansion-athermal-eosmapping25.streamlit.app/ )  (r22 with Cijkl updated, athermal EOS mapping method,E-V mapping works and correct for both beta Sn and Li2Sn5,  plotly visualization works,  Energy minimization, Energy as a function of volume, mechanics and thermodynamics of phases and structures, DFT calculation with GPAW, fast and robust, all phases robust, structural visualization is correct, phase stability calculation  complete)
+
+
+
 
 
 
